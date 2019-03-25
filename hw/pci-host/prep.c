@@ -298,12 +298,12 @@ static void raven_realize(PCIDevice *d, Error **errp)
 {
     RavenPCIState *s = RAVEN_PCI_DEVICE(d);
     char *filename;
-    int bios_size = -1;
+    // int bios_size = -1;
 
     d->config[0x0C] = 0x08; // cache_line_size
     d->config[0x0D] = 0x10; // latency_timer
     d->config[0x34] = 0x00; // capabilities_pointer
-
+    int bios_size = -1;
     memory_region_init_ram(&s->bios, OBJECT(s), "bios", BIOS_SIZE,
                            &error_fatal);
     memory_region_set_readonly(&s->bios, true);
