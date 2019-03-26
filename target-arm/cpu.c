@@ -952,6 +952,102 @@ static void arm_v7m_class_init(ObjectClass *oc, void *data)
     cc->cpu_exec_interrupt = arm_v7m_cpu_exec_interrupt;
 }
 
+static const ARMCPRegInfo cortexr4_cp_reginfo[] = {
+    /* Dummy the TCM region regs for the moment */
+    { .name = "ATCM", .cp = 15, .opc1 = 0, .crn = 9, .crm = 1, .opc2 = 0,
+      .access = PL1_RW, .type = ARM_CP_CONST },
+    { .name = "BTCM", .cp = 15, .opc1 = 0, .crn = 9, .crm = 1, .opc2 = 1,
+      .access = PL1_RW, .type = ARM_CP_CONST },
+    REGINFO_SENTINEL
+};
+
+static void cortex_r4_initfn(Object *obj){
+    ARMCPU *cpu = ARM_CPU(obj);
+
+    set_feature(&cpu->env, ARM_FEATURE_V7);
+    set_feature(&cpu->env, ARM_FEATURE_THUMB_DIV);
+    set_feature(&cpu->env, ARM_FEATURE_MPU);
+    cpu->midr = 0x411fc144; /* r1p4*/
+    cpu->id_pfr0 = 0x0131;
+    cpu->id_pfr1 = 0x001;
+    cpu->id_dfr0 = 0x010400;
+    cpu->id_afr0 = 0x0;
+    cpu->id_mmfr0 = 0x0210030;
+    cpu->id_mmfr1 = 0x00000000;
+    cpu->id_mmfr2 = 0x01200000;
+    cpu->id_mmfr3 = 0x0211;
+    cpu->id_isar0 = 0x01101111;
+    cpu->id_isar1 = 0x13112111;
+    cpu->id_isar2 = 0x21232131;
+    cpu->id_isar3 = 0x01112131;
+    cpu->id_isar4 = 0x00010142;
+    cpu->id_isar5 = 0x0;    
+    define_arm_cp_regs(cpu, cortexr4_cp_reginfo);
+}
+
+/* Floating-Point System ID Register[3:0] */
+static const struct {
+    uint8_t r;
+    uint8_t p;
+    uint8_t value;
+} cortexr4_fpsid_revs[] = {
+    { 1, 0, 0x3 },
+    { 1, 1, 0x4 },
+    { 1, 2, 0x6 },
+    { 1, 3, 0x7 },
+    { 1, 4, 0x8 },
+    {}
+};
+
+/* Cortex-R4F = Cortex-R4 + FPU */
+static void cortex_r4f_initfn(Object *obj)
+{
+    ARMCPU *cpu = ARM_CPU(obj);
+
+    set_feature(&cpu->env, ARM_FEATURE_V7);
+    set_feature(&cpu->env, ARM_FEATURE_THUMB_DIV);
+    set_feature(&cpu->env, ARM_FEATURE_MPU);
+    set_feature(&cpu->env, ARM_FEATURE_VFP3);
+    cpu->midr = 0x411fc144; /* r1p4*/
+    cpu->id_pfr0 = 0x0131;
+    cpu->id_pfr1 = 0x001;
+    cpu->id_dfr0 = 0x010400;
+    cpu->id_afr0 = 0x0;
+    cpu->id_mmfr0 = 0x0210030;
+    cpu->id_mmfr1 = 0x00000000;
+    cpu->id_mmfr2 = 0x01200000;
+    cpu->id_mmfr3 = 0x0211;
+    cpu->id_isar0 = 0x01101111;
+    cpu->id_isar1 = 0x13112111;
+    cpu->id_isar2 = 0x21232131;
+    cpu->id_isar3 = 0x01112131;
+    cpu->id_isar4 = 0x00010142;
+    cpu->id_isar5 = 0x0;
+
+    { /* set fpu fpsid for cortexr4f */
+        uint8_t r = ( cpu->midr >> 20 ) & 0xf;
+        uint8_t p = cpu->midr & 0xf;
+        uint8_t rev = 0;
+
+        for (int i = 0; cortexr4_fpsid_revs[i].r != 0; i++) {
+            if (cortexr4_fpsid_revs[i].r == r &&
+                cortexr4_fpsid_revs[i].p == p) {
+                    rev = cortexr4_fpsid_revs[i].value;
+                    break;
+                }
+        }
+
+        if (rev == 0) {
+            cpu_abort(&cpu->parent_obj, 
+                      "Cortex-R4F r%" PRIu8 "p%" PRIu8 " unsupported", 
+                      r, p);
+        }
+        
+        cpu->reset_fpsid = 0x41023140 | (rev & 0xf);
+    }
+    define_arm_cp_regs(cpu, cortexr4_cp_reginfo);
+}
+
 static const ARMCPRegInfo cortexr5_cp_reginfo[] = {
     /* Dummy the TCM region regs for the moment */
     { .name = "ATCM", .cp = 15, .opc1 = 0, .crn = 9, .crm = 1, .opc2 = 0,
@@ -1384,6 +1480,8 @@ static const ARMCPUInfo arm_cpus[] = {
                              .class_init = arm_v7m_class_init },
     { .name = "cortex-m4",   .initfn = cortex_m4_initfn,
                              .class_init = arm_v7m_class_init },
+    { .name = "cortex-r4",  .initfn = cortex_r4_initfn},
+    { .name = "cortex-r4f",  .initfn = cortex_r4f_initfn},
     { .name = "cortex-r5",   .initfn = cortex_r5_initfn },
     { .name = "cortex-a8",   .initfn = cortex_a8_initfn },
     { .name = "cortex-a9",   .initfn = cortex_a9_initfn },
