@@ -40,6 +40,7 @@
 #include "elf.h"
 #include "qemu/cutils.h"
 #include "hw/loader.h"
+#include "hw/sysbus.h"
 #define MAX_CPUS 1
 #define KERNEL_LOAD_ADDR 0x01000000
 #define BIOS_SIZE (1024 * 1024)
@@ -109,8 +110,13 @@ static void ppc_755board_init(MachineState *machine)
     memory_region_init_ram(bios, NULL, "bios", BIOS_SIZE,
                            &error_fatal);
     // memory_region_set_readonly(bios, true);
-    memory_region_add_subregion(get_system_memory(), (uint32_t)(-BIOS_SIZE),
-                                bios);
+    memory_region_add_subregion(get_system_memory(), (uint32_t)(-BIOS_SIZE),bios);
+    
+    if (PPC_INPUT(env) != PPC_FLAGS_INPUT_6xx) {
+        error_report("Only 6xx bus is supported on ppc755 machine");
+        exit(1);
+    }
+    sysbus_create_varargs("tsi107epic",0xfc000000,cpu->env.irq_inputs[PPC6xx_INPUT_INT]);
     if (bios_name == NULL) {
         if (machine->kernel_filename) {
             bios_name = machine->kernel_filename;
