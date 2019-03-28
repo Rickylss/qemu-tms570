@@ -122,8 +122,12 @@ static void tms570_init(MachineState *machine,
     /* 0xfffffe00 VIM */
     /* 0xffffff00 system register1 */
 
-
-
+    tms570_binfo.ram_size = machine->ram_size;
+    tms570_binfo.kernel_filename = machine->kernel_filename;
+    tms570_binfo.kernel_cmdline = machine->kernel_cmdline;
+    tms570_binfo.initrd_filename = machine->initrd_filename;
+    tms570_binfo.board_id = realview_board_id[board_type];
+    arm_load_kernel(cpu, &tms570_binfo);
 }
 
 static void tms570_ls3137_init(MachineState *machine)
