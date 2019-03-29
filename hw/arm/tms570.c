@@ -98,18 +98,21 @@ static void tms570_init(MachineState *machine,
                                 qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_IRQ),
                                 qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_FIQ),
                                 NULL);
-    for (n = 0; n < 94; n++) {
+    for (n = 0; n < 95; n++) { 
         pic[n] = qdev_get_gpio_in(dev, n);
     }
+    /* channel 0 and 1 are reserved */
+    //sysbus_create_simple("esm", 0x, pic[0]);
+    //sysbus_create_simple("adc", 0x, pic[1]);
 
     /* N2HET at address 0xfff7b800 */
-    sysbus_create_simple("tms570-n2het", 0x101e3000, pic[1]);
+    sysbus_create_simple("tms570-n2het", 0x101e3000, pic[2]);
 
     /* SCI at address 0xfff7e500 */
-    sysbus_create_simple("tms570-sci", 0xfff7e500, pic[2]);
+    sysbus_create_simple("tms570-sci", 0xfff7e500, pic[3]);
 
     /* DMA at address 0xfffff000 */
-    sysbus_create_simple("pl081", 0xfffff000, pic[3]);
+    sysbus_create_simple("pl081", 0xfffff000, pic[4]);
 
     /* Memory map for tms570ls3137:  */
     /* 0xfff7b800 HET1 */
