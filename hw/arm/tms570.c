@@ -106,13 +106,16 @@ static void tms570_init(MachineState *machine,
     //sysbus_create_simple("adc", 0x, pic[1]);
 
     /* N2HET at address 0xfff7b800 */
-    sysbus_create_simple("tms570-n2het", 0x101e3000, pic[2]);
+    //sysbus_create_simple("tms570-n2het", 0x101e3000, pic[10]);
+    sysbus_create_varargs("tms570-n2het", 0xfff7b800, pic[10], pic[24], NULL);
+    sysbus_create_varargs("tms570-n2het", 0xfff7b900, pic[63], pic[73], NULL);
 
     /* SCI at address 0xfff7e500 */
-    sysbus_create_simple("tms570-sci", 0xfff7e500, pic[3]);
+    //sysbus_create_simple("tms570-sci", 0xfff7e500, pic[3]);
+    sysbus_create_varargs("tms570-sci", 0xfff7e500, pic[64], pic[74], NULL);
 
     /* DMA at address 0xfffff000 */
-    sysbus_create_simple("pl081", 0xfffff000, pic[4]);
+    //sysbus_create_simple("pl081", 0xfffff000, pic[4]);
 
     /* Memory map for tms570ls3137:  */
     /* 0xfff7b800 HET1 */
