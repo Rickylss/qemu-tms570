@@ -525,7 +525,9 @@ static inline void cpu_loop_exec_tb(CPUState *cpu, TranslationBlock *tb,
     if (unlikely(cpu->exit_request)) {
         return;
     }
-
+    // if((tb->pc < 0xfff0f000 && tb->pc > 0xfff00000) || (tb->pc < 0xf000)){
+    //     fprintf(stderr,"pc:%x     size:%d\n",tb->pc,tb->size);
+    // }
     trace_exec_tb(tb, tb->pc);
     ret = cpu_tb_exec(cpu, tb);
     *last_tb = (TranslationBlock *)(ret & ~TB_EXIT_MASK);

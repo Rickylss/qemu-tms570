@@ -169,12 +169,14 @@ typedef struct tsi107EPICState
 }tsi107EPICState;
 
 static void tsi107epic_upadate(tsi107EPICState* s){
-
+    qemu_set_irq(s->parent_irq,1);
+    // qemu_set_irq(s->parent_irq,0);
 }
 
 static void tsi107epic_set_irq(void* opaque,int irq,int level){
+    tsi107_debug("call tsi107epic_set_irq  irq:%d   level:%d\n",irq,level);
     tsi107EPICState* s = (tsi107EPICState*)opaque;
-
+    // qemu_set_irq(s->parent_irq,level);
     tsi107epic_upadate(s);
 }
 /*
@@ -251,8 +253,9 @@ static void timer0_tick_callback(void *opaque){
     if(!flag){
         flag = 1;
         tsi107EPICState* s = opaque;
+        tsi107_debug("timer0 set irq\n");
         qemu_set_irq(s->parent_irq,1);
-        qemu_set_irq(s->parent_irq,0);
+        // qemu_set_irq(s->parent_irq,0);
     }
 }
 

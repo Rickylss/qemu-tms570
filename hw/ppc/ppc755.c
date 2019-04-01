@@ -41,6 +41,7 @@
 #include "qemu/cutils.h"
 #include "hw/loader.h"
 #include "hw/sysbus.h"
+#include "hw/char/pl011.h"
 #define MAX_CPUS 1
 #define KERNEL_LOAD_ADDR 0x01000000
 #define BIOS_SIZE (1024 * 1024)
@@ -66,9 +67,9 @@ static void ppc_755board_init(MachineState *machine)
     MemoryRegion *sysmem = get_system_memory();
     PowerPCCPU *cpu = NULL;
     CPUPPCState *env = NULL;
-
+    qemu_irq pic[5];
     MemoryRegion *ram = g_new(MemoryRegion, 1);
-
+    DeviceState *dev;
     // int linux_boot;
     // linux_boot = (kernel_filename != NULL);
 
@@ -116,7 +117,12 @@ static void ppc_755board_init(MachineState *machine)
         error_report("Only 6xx bus is supported on ppc755 machine");
         exit(1);
     }
-    sysbus_create_varargs("tsi107epic",0xfc000000,cpu->env.irq_inputs[PPC6xx_INPUT_INT]);
+    dev=sysbus_create_varargs("tsi107epic",0xfc000000,cpu->env.irq_inputs[PPC6xx_INPUT_INT]);
+
+    for(i=0;i<5;i++){
+        pic[i] = qdev_get_gpio_in(dev,i);
+    }
+    pl011_create(0xa0000000,pic[0],serial_hds[0]);
     if (bios_name == NULL) {
         if (machine->kernel_filename) {
             bios_name = machine->kernel_filename;
