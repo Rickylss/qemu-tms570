@@ -13,7 +13,7 @@
 #define TYPE_VIM "tms570-vim"
 #define VIM(obj) OBJECT_CHECK(VimState, (obj), TYPE_VIM)
 #define PHANTOM_VECTOR 0xfff82000
-#define VIM_MAX_IRQ 96
+#define VIM_MAX_IRQ 96 
 
 typedef struct VimState {
     /*< private >*/
@@ -27,42 +27,62 @@ typedef struct VimState {
     /* Control Registers */
     uint32_t first_irq_channel; /* IRQ Index Offset Vector Register */
     uint32_t first_fiq_channel; /* FIQ Index Offset Vector Register */
-    uint32_t fiq_or_irq[2]; /* FIQ/IRQ Program Control Register */
-    uint32_t is_pending[2]; /* Pending Interrupt Read Location Register */
+    uint32_t fiq_or_irq[3]; /* FIQ/IRQ Program Control Register */
+    uint32_t is_pending[3]; /* Pending Interrupt Read Location Register */
     /* Interrupt Enable Set Register Interrupt Enable Clear Register */
-    uint32_t is_enabled[2];
+    uint32_t is_enabled[3];
     /* Wake-up Enable Set Register Wake-up Enable Clear Register */
-    uint32_t is_weakup[2];
+    uint32_t is_weakup[3];
     uint32_t first_irq_isr; /* IRQ Interrupt Vector Register */
     uint32_t first_fiq_isr; /* FIQ Interrupt Vector Register */
     uint32_t cap_to_rti; /* Capture Event Register */
-    uint32_t int_map_channel[23]; /* VIM Interrupt Control Register */
+    uint32_t int_map_channel[24]; /* VIM Interrupt Control Register */
 
     qemu_irq irq;
     qemu_irq fiq;
 } VimState;
 
-typedef struct ChannelArray
-{
-    int index;
-    uint8_t array[0];
-} ChannelArray;
-
-/* Update interrupts.  */
+/* Update interrupts */
 static void vim_update(VimState *s)
 {
-    /* call set_irq for irq/fiq*/
-    qemu_set_irq(s->irq, true);
-    qemu_set_irq(s->fiq, true);
-    /* TODO: to cpu vic port*/
+    uint32_t irq[3];
+    uint32_t fiq[3];
+    
+    for(i = 0; i < 3; i++)
+    {
+        /* interrupt channel enable and pending */
+        fiq[i] = s->is_pending[i] & s->is_enabled[i] & s->fiq_or_irq[i];
+        if (fiq[i]) {
+            uint32_t first_bit = fiq[i] & (~(fiq[i]-1));
+            uint8_t channel = (32 * i) + first_bit / 2;
+            s->first_fiq_channel = channel;
+            s->first_fiq_isr = PHANTOM_VECTOR + (0x4 * (channel + 1));
+            qemu_irq_raise(s->fiq);
+            s->is_pending &= ~first_bit;
+            break;
+        }
+    }
+
+    for(i = 0; i < 3; i++)
+    {
+        irq[i] = s->is_pending[i] & s->is_enabled[i] & ~s->fiq_or_irq[i];
+        if (irq[i]) {
+            uint32_t first_bit = fiq[i] & (~(fiq[i]-1));
+            uint8_t channel = (32 * i) + first_bit / 2;
+            s->first_irq_channel = channel;
+            s->first_irq_isr = PHANTOM_VECTOR + (0x4 * (channel + 1));
+            qemu_irq_raise(s->irq);
+            s->is_pending &= ~first_bit;
+            break;
+        }
+    }
+
 }
 
 static void vim_set_irq(void *opaque, int irq, int level)
 {
     VimState *s = (VimState *)opaque;
     int i, j;
-    ChannelArray channels;
-
 
     if (irq >= VIM_MAX_IRQ) {
         fprintf(stderr, "%s: IRQ %d out of range\n", __func__, irq);
@@ -76,29 +96,13 @@ static void vim_set_irq(void *opaque, int irq, int level)
                 continue;
             } else
             {
-                channels.array[channels.index++] = (4 * i + (3 - j)) & 0xff;
+                int channel = (4 * i + (3 - j)) & 0xff;
+                int index = channel / 32;
+                int bit = channel % 32;
+                s->is_pending[index] |= 1u << bit;
             }
         }
     }
-
-    /* interrupt channel enable */
-    for(i = 0; i < channels.index + 1; i++)
-    {
-        if ((is_enabled[channel.array[i] / 32] >> (channel.array[i] % 32)) & 0x1)
-        { //channel enable
-
-        } else
-        { //channel disable
-            
-        }
-    }
-
-    /* IRQ/FIQ level */
-
-    // s->first_irq_channel
-    // s->first_fiq_channel
-    // s->first_irq_isr
-    // s->first_fiq_isr
 
     vim_update(s);
 }
@@ -130,13 +134,13 @@ static uint64_t vim_read(void *opaque, hwaddr offset,
     switch (offset)
     {
         case 0x00: /* IRQINDEX */
-            return s->first_irq_channel; //TODO
+            return s->first_irq_channel;
         case 0x04: /* FIQINDEX */
-            return s->first_fiq_channel; //TODO
+            return s->first_fiq_channel;
         case 0x70: /* IRQVECREG */
-            return s->first_irq_isr; //TODO
+            return s->first_irq_isr;
         case 0x74: /* FIQVECREG */
-            return s->first_fiq_isr; //TODO
+            return s->first_fiq_isr;
         case 0x78: /* CAPEVT */
             return s->cap_to_rti;
         default:
@@ -145,6 +149,7 @@ static uint64_t vim_read(void *opaque, hwaddr offset,
             return 0;
     }
 
+    vim_update(s);
 }
 
 static void vim_write(void *opaque, hwaddr offset,
@@ -210,6 +215,8 @@ static void vim_write(void *opaque, hwaddr offset,
                       "vim_read: Bad offset %x\n", (int)offset);
             return 0;
     }
+
+    vim_update(s);
 }
 
 /* read/write operations */
@@ -278,6 +285,16 @@ static const VMStateDescription vmstate_vim = {
     .minimum_version_id = 1,
     .fields = (VMStateField[]) {
         /* TODO */
+        VMSTATE_UINT32(first_irq_channel, VimState),
+        VMSTATE_UINT32(first_fiq_channel, VimState),
+        VMSTATE_UINT32(first_fiq_isr, VimState),
+        VMSTATE_UINT32(first_irq_isr, VimState),
+        VMSTATE_UINT32(cap_to_rti, VimState),
+        VMSTATE_UINT32_ARRAY(fiq_or_irq, VimState),
+        VMSTATE_UINT32_ARRAY(is_pending, VimState),
+        VMSTATE_UINT32_ARRAY(is_enabled, VimState),
+        VMSTATE_UINT32_ARRAY(is_weakup, VimState),
+        VMSTATE_UINT32_ARRAY(int_map_channel, VimState),
         VMSTATE_END_OF_LIST()
     }
 }
