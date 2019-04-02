@@ -54,7 +54,7 @@ static void tms570_init(MachineState *machine,
     MemoryRegion *sysmem = get_system_memory();
     MemoryRegion *ram = g_new(MemoryRegion, 1);
     MemoryRegion *flash = g_new(MemoryRegion, 1);
-    qemu_irq pic[94];
+    qemu_irq pic[95];
     DeviceState *dev;
     int n;
 
@@ -86,6 +86,8 @@ static void tms570_init(MachineState *machine,
 
     memory_region_allocate_system_memory(ram, NULL, "tms570ls31x.ram",
                                          machine->ram_size);
+    memory_region_allocate_system_memory(flash, NULL, "tms570ls31x.flash",
+                                         3*1024*1024);
 
     /* ??? RAM should repeat to fill physical memory space.  */
     /* FLASH at address 0x00000000. */

@@ -47,6 +47,7 @@ static void vim_update(VimState *s)
 {
     uint32_t irq[3];
     uint32_t fiq[3];
+    int i;
     
     for(i = 0; i < 3; i++)
     {
@@ -58,7 +59,7 @@ static void vim_update(VimState *s)
             s->first_fiq_channel = channel;
             s->first_fiq_isr = PHANTOM_VECTOR + (0x4 * (channel + 1));
             qemu_irq_raise(s->fiq);
-            s->is_pending &= ~first_bit;
+            s->is_pending[i] &= ~first_bit;
             break;
         }
     }
@@ -72,7 +73,7 @@ static void vim_update(VimState *s)
             s->first_irq_channel = channel;
             s->first_irq_isr = PHANTOM_VECTOR + (0x4 * (channel + 1));
             qemu_irq_raise(s->irq);
-            s->is_pending &= ~first_bit;
+            s->is_pending[i] &= ~first_bit;
             break;
         }
     }
@@ -213,7 +214,7 @@ static void vim_write(void *opaque, hwaddr offset,
         default:
             qemu_log_mask(LOG_GUEST_ERROR,
                       "vim_read: Bad offset %x\n", (int)offset);
-            return 0;
+            break;
     }
 
     vim_update(s);
@@ -256,7 +257,7 @@ static void vim_reset(DeviceState *d)
 
     for (i = 0; i < 24; i++) {
         int base = 4 * i;
-        int_map_channel[i] = (base << 24) | ((base + 1) << 16) | ((base + 2) << 8) | (base + 3);
+        s->int_map_channel[i] = (base << 24) | ((base + 1) << 16) | ((base + 2) << 8) | (base + 3);
     }
 
 }
@@ -275,7 +276,7 @@ static void vim_init(Object *obj)
     memory_region_init_io(&s->mem, obj, &vim_ops, s, "tms570-vim", 0x100);
     sysbus_init_mmio(sbd, &s->mem);
     qdev_init_gpio_in(dev, vim_set_irq, 95);
-    sysbus_init_irq(sbd, &s-irq);
+    sysbus_init_irq(sbd, &s->irq);
     sysbus_init_irq(sbd, &s->fiq);
 }
 
@@ -290,14 +291,14 @@ static const VMStateDescription vmstate_vim = {
         VMSTATE_UINT32(first_fiq_isr, VimState),
         VMSTATE_UINT32(first_irq_isr, VimState),
         VMSTATE_UINT32(cap_to_rti, VimState),
-        VMSTATE_UINT32_ARRAY(fiq_or_irq, VimState),
-        VMSTATE_UINT32_ARRAY(is_pending, VimState),
-        VMSTATE_UINT32_ARRAY(is_enabled, VimState),
-        VMSTATE_UINT32_ARRAY(is_weakup, VimState),
-        VMSTATE_UINT32_ARRAY(int_map_channel, VimState),
+        VMSTATE_UINT32_ARRAY(fiq_or_irq, VimState, 3),
+        VMSTATE_UINT32_ARRAY(is_pending, VimState, 3),
+        VMSTATE_UINT32_ARRAY(is_enabled, VimState, 3),
+        VMSTATE_UINT32_ARRAY(is_weakup, VimState, 3),
+        VMSTATE_UINT32_ARRAY(int_map_channel, VimState, 24),
         VMSTATE_END_OF_LIST()
     }
-}
+};
 
 static void vim_class_init(ObjectClass *klass, void *data)
 {
