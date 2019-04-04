@@ -13,7 +13,7 @@
 #define TYPE_VIM "tms570-vim"
 #define VIM(obj) OBJECT_CHECK(VimState, (obj), TYPE_VIM)
 #define PHANTOM_VECTOR 0xfff82000
-#define VIM_MAX_IRQ 96 
+#define VIM_MAX_IRQ 95  
 
 typedef struct VimState {
     /*< private >*/
@@ -63,6 +63,9 @@ static void vim_update(VimState *s)
             break;
         }
     }
+    if ((fiq[0] & fiq[1] & fiq[2]) == 0) {
+        qemu_irq_lower(s->fiq);
+    }
 
     for(i = 0; i < 3; i++)
     {
@@ -76,6 +79,9 @@ static void vim_update(VimState *s)
             s->is_pending[i] &= ~first_bit;
             break;
         }
+    }
+    if ((irq[0] & irq[1] & irq[2]) == 0) {
+        qemu_irq_lower(s->irq);
     }
 
 }
@@ -149,8 +155,7 @@ static uint64_t vim_read(void *opaque, hwaddr offset,
                       "vim_read: Bad offset %x\n", (int)offset);
             return 0;
     }
-
-    vim_update(s);
+    
 }
 
 static void vim_write(void *opaque, hwaddr offset,
