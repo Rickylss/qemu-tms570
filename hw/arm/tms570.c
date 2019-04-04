@@ -84,10 +84,10 @@ static void tms570_init(MachineState *machine,
 
     cpu = ARM_CPU(cpuobj);
 
-    memory_region_allocate_system_memory(ram, NULL, "tms570ls31x.ram",
-                                         machine->ram_size);
     memory_region_allocate_system_memory(flash, NULL, "tms570ls31x.flash",
                                          3*1024*1024);
+    memory_region_allocate_system_memory(ram, NULL, "tms570ls31x.ram",
+                                         machine->ram_size);
 
     /* ??? RAM should repeat to fill physical memory space.  */
     /* FLASH at address 0x00000000. */
@@ -110,18 +110,20 @@ static void tms570_init(MachineState *machine,
     /* N2HET at address 0xfff7b800 */
     //sysbus_create_simple("tms570-n2het", 0x101e3000, pic[10]);
     sysbus_create_varargs("tms570-n2het", 0xfff7b800, pic[10], pic[24], NULL);
+
     sysbus_create_varargs("tms570-n2het", 0xfff7b900, pic[63], pic[73], NULL);
 
     /* SCI at address 0xfff7e500 */
     //sysbus_create_simple("tms570-sci", 0xfff7e500, pic[3]);
     sysbus_create_varargs("tms570-sci", 0xfff7e500, pic[64], pic[74], NULL);
 
-    /* DMA at address 0xfffff000 */
-    //sysbus_create_simple("pl081", 0xfffff000, pic[4]);
+    /* GPIO at address 0xfff7bc00 portA portB*/
+    sysbus_create_simple("pl061", 0xfff7bc00, pic[9], pic[23], NULL);
 
     /* Memory map for tms570ls3137:  */
     /* 0xfff7b800 HET1 */
     /* 0xfff7b900 HET2 */
+    /* 0xfff7bc00 GIO
     /* 0xfff7d400 i2c */
     /* 0xfff7e500 SCI */
     /* 0xfff7e400 SCI(LIN) */
