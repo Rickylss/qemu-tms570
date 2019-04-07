@@ -327,17 +327,17 @@ static void tsi107epic_write_eoi(tsi107EPICState* s){
         if(tsi107_get_bit(s->isr,index)){
             if(index < 4){
                 if((((s->gtvpr[index]) >> 16)&&0xf) == (s->pctpr & 0xf))
-                    tsi107_debug("clear timer[%d] isr\n",index);
+                    // tsi107_debug("clear timer[%d] isr\n",index);
                     tsi107_clear_bit(&s->isr,index);
                 if(!tsi107_get_bit(s->pending,index))
-                    tsi107_debug("clear timer[%d] activity\n",index);
+                    // tsi107_debug("clear timer[%d] activity\n",index);
                     tsi107_clear_bit(s->gtvpr+index,30);
             }else{
                 if((((s->ivpr[index-4]) >> 16)&&0xf) == (s->pctpr & 0xf))
-                    tsi107_debug("clear ivpr[%d] isr\n",index-4);
+                    // tsi107_debug("clear ivpr[%d] isr\n",index-4);
                     tsi107_clear_bit(&s->isr,index);
                 if(!tsi107_get_bit(s->pending,index))
-                    tsi107_debug("clear ivpr[%d] activity\n",index-4);
+                    // tsi107_debug("clear ivpr[%d] activity\n",index-4);
                     tsi107_clear_bit(s->ivpr+index-4,30);                
             }
         }

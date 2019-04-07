@@ -2,6 +2,7 @@ common-obj-$(CONFIG_IPACK) += ipoctal232.o
 common-obj-$(CONFIG_ESCC) += escc.o
 common-obj-$(CONFIG_PARALLEL) += parallel.o
 common-obj-$(CONFIG_PL011) += pl011.o
+common-obj-$(CONFIG_PC16552D) += pc16552d.o
 common-obj-$(CONFIG_SERIAL) += serial.o serial-isa.o
 common-obj-$(CONFIG_SERIAL_PCI) += serial-pci.o
 common-obj-$(CONFIG_VIRTIO) += virtio-console.o

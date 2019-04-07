@@ -42,6 +42,7 @@
 #include "hw/loader.h"
 #include "hw/sysbus.h"
 #include "hw/char/pl011.h"
+#include "hw/char/pc16552d.h"
 #define MAX_CPUS 1
 #define KERNEL_LOAD_ADDR 0x01000000
 #define BIOS_SIZE (1024 * 1024)
@@ -122,7 +123,8 @@ static void ppc_755board_init(MachineState *machine)
     for(i=0;i<5;i++){
         pic[i] = qdev_get_gpio_in(dev,i);
     }
-    pl011_create(0xa0000000,pic[0],serial_hds[0]);
+    // pl011_create(0xa0000000,pic[0],serial_hds[0]);
+    pc16552d_create(0xa0000000,pic[4],serial_hds[0],serial_hds[1]);
     if (bios_name == NULL) {
         if (machine->kernel_filename) {
             bios_name = machine->kernel_filename;
