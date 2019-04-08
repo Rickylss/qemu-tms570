@@ -16,7 +16,7 @@
 #define TSI107TIEMERNUM  4
 #define TSI107IRQNUM   (TSI107TIEMERNUM+5)   //4 timers and 5 irq
 #define TSI107ISRMAX  TSI107IRQNUM   //I don't know the value,so ....
-// #define DEBUG_TSI107
+#define DEBUG_TSI107
 #ifdef DEBUG_TSI107
 #define tsi107_debug(fmt, ...) fprintf(stderr, fmt, ## __VA_ARGS__)
 #else
@@ -193,10 +193,10 @@ static inline uint32_t tsi107_get_bit(uint32_t data,int index){
     return (data >> index) & 0x1u;
 }
 static inline void tsi107_clear_bit(uint32_t* addr,int index){
-    *addr &= ~(1u<<index);
+    *addr &= ~(0x1u<<index);
 }
 static inline void tsi107_set_bit(uint32_t* addr,int index){
-    *addr |= 1u << index;
+    *addr |= (0x1u << index);
 }
 
 static uint32_t tsi107epic_get_isr_priority(tsi107EPICState* s,int index){
@@ -291,7 +291,7 @@ static void tsi107epic_set_irq(void* opaque,int irq,int level){
     if(level){
         if(irq>-1 && irq < TSI107IRQNUM){
             //timer
-            if(!TSI107EPIC_GTVPR_M(s->gtvpr[irq])){
+            if((irq < 4)&&!TSI107EPIC_GTVPR_M(s->gtvpr[irq])){
                 tsi107_debug("gtvpr_m irq:%d\n",irq);
                 tsi107_debug("gtvpr[0]:%x\n",s->gtvpr[0]);
                 // TSI107EPIC_SET_PENDING(irq);
@@ -299,11 +299,11 @@ static void tsi107epic_set_irq(void* opaque,int irq,int level){
                 tsi107_set_bit(s->gtvpr+irq,30);// activity bit
                 tsi107_debug("1 gtvpr[0]:%x\n",s->gtvpr[0]);
                 // s->gtvpr[irq] |= (1<<30);
-            }else if(!TSI107EPIC_IVPR_M(s->ivpr[irq-4])){
+            }else if((irq>4 && irq<9)&&!TSI107EPIC_IVPR_M(s->ivpr[irq-4])){
                 // TSI107EPIC_SET_PENDING(irq);
                 tsi107_debug("ivpr_m irq:%d\n",irq);
                 tsi107_set_bit(&s->pending,irq);
-                tsi107_set_bit(s->ivpr+irq-4,30);
+                tsi107_set_bit(s->ivpr+(irq-4),30);
                 // s->ivpr[irq] |= (1<<30);
             }else{
                 printf("the irq:%d is masked\n",irq);
@@ -338,7 +338,7 @@ static void tsi107epic_write_eoi(tsi107EPICState* s){
                     tsi107_clear_bit(&s->isr,index);
                 if(!tsi107_get_bit(s->pending,index))
                     // tsi107_debug("clear ivpr[%d] activity\n",index-4);
-                    tsi107_clear_bit(s->ivpr+index-4,30);                
+                    tsi107_clear_bit(s->ivpr+(index-4),30);                
             }
         }
     }
@@ -660,6 +660,7 @@ static void tsi107EPIC_write(void *opaque, hwaddr offset, uint64_t val,unsigned 
             break;
         case IVPR4:
             tsi107_write_vpr(s,8,value);
+            tsi107_debug("ivpr[5]:%lx\n",s->ivpr[4]);
             break;
         case PCTPR:
             s->pctpr = value;
@@ -817,14 +818,16 @@ static void tsi107EPIC_class_init(ObjectClass* klass,void* data){
     dc->reset = tsi107EPIC_reset;
     dc->vmsd = &vmstate_tsi107_epic;
 }
-
+static void tsi107epic_set_external_irq(void* opaque,int irq,int level){
+    tsi107epic_set_irq(opaque,irq+4,level);
+}
 static void tsi107epic_init(Object* obj){
     DeviceState *dev = DEVICE(obj);
     tsi107EPICState *s = TSI107EPIC(obj);
     SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
     memory_region_init_io(&s->iomem,obj,&tsi107epic_ops,s,"tsi107epic",0x200000);
     sysbus_init_mmio(sbd,&s->iomem);
-    qdev_init_gpio_in(dev,tsi107epic_set_irq,5);
+    qdev_init_gpio_in(dev,tsi107epic_set_external_irq,5);
     sysbus_init_irq(sbd,&s->parent_irq);
 
     //timer init

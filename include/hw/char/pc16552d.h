@@ -16,7 +16,7 @@
 #define HW_PC16552D_H
 
 static inline DeviceState *pc16552d_create(hwaddr addr,
-                                        qemu_irq irq,
+                                        qemu_irq irq0,qemu_irq irq1,
                                         CharDriverState *chr0,CharDriverState* chr1)
 {
     DeviceState *dev;
@@ -27,8 +27,8 @@ static inline DeviceState *pc16552d_create(hwaddr addr,
     qdev_prop_set_chr(dev,"chardev1",chr1);
     qdev_init_nofail(dev);
     sysbus_mmio_map(s, 0, addr);
-    sysbus_connect_irq(s, 0, irq);
-
+    sysbus_connect_irq(s, 0, irq0);
+    sysbus_connect_irq(s,1,irq1);
     return dev;
 }
 

@@ -124,7 +124,7 @@ static void ppc_755board_init(MachineState *machine)
         pic[i] = qdev_get_gpio_in(dev,i);
     }
     // pl011_create(0xa0000000,pic[0],serial_hds[0]);
-    pc16552d_create(0xa0000000,pic[4],serial_hds[0],serial_hds[1]);
+    pc16552d_create(0xa0000000,pic[4],pic[0],serial_hds[0],serial_hds[1]);
     if (bios_name == NULL) {
         if (machine->kernel_filename) {
             bios_name = machine->kernel_filename;

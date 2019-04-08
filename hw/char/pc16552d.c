@@ -38,7 +38,7 @@ typedef struct PC16552DState {
     uint8_t write_count[2];
     uint8_t write_trigger[2];
     CharDriverState *chr[2];
-    qemu_irq irq;
+    qemu_irq irq[2];
     uint8_t mode[2];
     uint8_t urbr[2];
     uint8_t ulcr[2];
@@ -149,7 +149,7 @@ static uint64_t pc16552d_read(void *opaque, hwaddr offset,
 }  
 inline static void pc16552d_send_trigger(PC16552DState* s,uint8_t index)
 {   
-    qemu_set_irq(s->irq,1);
+    qemu_set_irq(s->irq[index],1);
 }
 static void pc16552d_send_update(PC16552DState* s,uint8_t index){
     pc16552d_debug("pc16552d send update\n");
@@ -194,7 +194,7 @@ inline static void pc16552d_write_0(PC16552DState* s,uint64_t val,uint8_t index)
 }
 inline static void pc16552d_write_1(PC16552DState* s,uint64_t val,uint8_t index){
     pc16552d_debug("pc16552d write 1 value:%lx  index:%d\n",val,index);
-    if(!(s->ulcr[index] & 0x80u)){
+    if((s->ulcr[index] & 0x80u) != 0x80u){
         s->uier[index] = val;
     }else{
         s->udmb[index] = val;
@@ -285,7 +285,7 @@ inline static void pc16552d_receive_trigger(PC16552DState* s,uint8_t index)
 {   
     if(s->uier[index]&0x1u){
         s->uiir[index] |= 0x8u;
-        qemu_set_irq(s->irq,1);
+        qemu_set_irq(s->irq[index],1);
     }
 }
 static void pc16552d_put_fifo(void *opaque, uint32_t value,uint8_t index)
@@ -409,8 +409,8 @@ static void pc16552d_init(Object *obj)
 
     memory_region_init_io(&s->iomem, OBJECT(s), &pc16552d_ops, s, "PC16552D", 0x10000);
     sysbus_init_mmio(sbd, &s->iomem);
-    sysbus_init_irq(sbd, &s->irq);
-
+    sysbus_init_irq(sbd, &s->irq[0]);
+    sysbus_init_irq(sbd,&s->irq[1]);
     // s->read_trigger = 1;
     // s->ifl = 0x12;
     // s->cr = 0x300;
