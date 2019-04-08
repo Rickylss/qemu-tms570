@@ -124,7 +124,7 @@ static void tms570_init(MachineState *machine,
     /* Memory map for tms570ls3137:  */
     /* 0xfff7b800 HET1 */
     /* 0xfff7b900 HET2 */
-    /* 0xfff7bc00 GIO
+    /* 0xfff7bc00 GIO */
     /* 0xfff7d400 i2c */
     /* 0xfff7e500 SCI */
     /* 0xfff7e400 SCI(LIN) */

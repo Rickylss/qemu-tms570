@@ -26,9 +26,9 @@
 #define SCIFLR_TX_RDY (1 << 8)
 
 static const unsigned char sci_vect_offset[7] = 
- { 0x1, 0x3, 0x6, 0x7, 0x9, 0xb, 0xc};
+ { 0x1, 0x3, 0x6, 0x7, 0x9, 0xb, 0xc };
 
-static const unsigned uint32_t sci_int_mask[7] = 
+static const uint32_t sci_int_mask[7] = 
  {  SCIFLR_WAKEUP, 
     SCIFLR_PE, 
     SCIFLR_FE, 
@@ -75,8 +75,8 @@ static void sci_update(SCIState *s)
     uint32_t en_pend_int0, en_pend_int1; 
     int i;
 
-    en_pend_int0 = s->flag & s->intreg & INT_MASK & ~intlevel;
-    en_pend_int1 = s->flag & s->intreg & INT_MASK & intlevel;
+    en_pend_int0 = s->flag & s->intreg & INT_MASK & ~s->intlevel;
+    en_pend_int1 = s->flag & s->intreg & INT_MASK & s->intlevel;
 
     //update SCIINTVECT0
     for(i = 0; i < 7; i++)
@@ -104,7 +104,6 @@ static uint64_t sci_read(void *opaque, hwaddr offset,
                            unsigned size)
 {
     SCIState *s = (SCIState *)opaque;
-    unsigned char ch;
 
     if (offset >= 0x3c && offset < 0x90) { //SCIPIO0~8
         return s->pio_control[(offset - 0x3c) >> 2];
@@ -116,7 +115,7 @@ static uint64_t sci_read(void *opaque, hwaddr offset,
                 s->flag &= ~(s->intreg & s->flag & SCIFLR_WAKEUP);
             case 3: //PE
                 s->flag &= ~(s->intreg & s->flag & SCIFLR_PE);
-            case 6：//FE
+            case 6: //FE
                 s->flag &= ~(s->intreg & s->flag & SCIFLR_FE);
             case 7: //BRKDT
                 s->flag &= ~(s->intreg & s->flag & SCIFLR_BRKDT);
@@ -156,7 +155,7 @@ static uint64_t sci_read(void *opaque, hwaddr offset,
             }
         case 0x30: //SCIED RO
         case 0x38: //SCITD RW
-            return s->buffer;
+            return s->buff;
         case 0x90:
             return s->ioerr;
         default:
@@ -164,6 +163,19 @@ static uint64_t sci_read(void *opaque, hwaddr offset,
                       "tms570_sci_read: Bad offset %x\n", (int)offset);
             return 0;
     }
+}
+
+static int sci_transmit(void *opaque)
+{
+    SCIState *s = (SCIState *)opaque;
+
+    if (s->scigcr1 & 0x02000000) { //TXENA
+        if ((s->flag & SCIFLR_TX_RDY) == 0) { // TX_RDY not pending
+            s->flag |= SCIFLR_TX_RDY;
+        }
+    }
+    
+    return (s->flag & SCIFLR_TX_RDY);
 }
 
 static void sci_write(void *opaque, hwaddr offset,
@@ -223,7 +235,7 @@ static void sci_write(void *opaque, hwaddr offset,
         default:
             qemu_log_mask(LOG_GUEST_ERROR,
                       "tms570_sci_read: Bad offset %x\n", (int)offset);
-            return 0;
+            break;
     }
     sci_update(s);
 }
@@ -245,19 +257,8 @@ static void sci_receive(void *opaque, const uint8_t *buf, int size)
 {
     SCIState *s = (SCIState *)opaque;
 
-    s->buffer = *buf;
+    s->buff = *buf;
     sci_update(s);
-}
-
-static int sci_transmit(void *opaque)
-{
-    if (s->scigcr1 & 0x02000000) { //TXENA
-        if ((s->flag & SCIFLR_TX_RDY) == 0) { // TX_RDY not pending
-            s->flag |= SCIFLR_TX_RDY;
-        }
-    }
-    
-    return (s->flag & SCIFLR_TX_RDY);
 }
 
 static void sci_event(void *opaque, int event)
@@ -278,17 +279,17 @@ static const VMStateDescription vmstate_sci = {
     .version_id = 1,
     .minimum_version_id = 1,
     .fields = (VMStateField[]) {
-        VMSTATE_UINT32(scigcr0, SCIState);
-        VMSTATE_UINT32(scigcr1, SCIState);
-        VMSTATE_UINT32(intreg, SCIState);
-        VMSTATE_UINT32(intlevel, SCIState);
-        VMSTATE_UINT32(flag, SCIState);
-        VMSTATE_UINT32(format, SCIState);
-        VMSTATE_UINT32(brs, SCIState);
-        VMSTATE_UINT32(buff, SCIState);
-        VMSTATE_UINT32(ioerr, SCIState);
-        VMSTATE_UINT32_ARRAY(vecoffset, SCIState, 2);
-        VMSTATE_UINT32_ARRAY(pio_control, SCIState, 9);
+        VMSTATE_UINT32(scigcr0, SCIState),
+        VMSTATE_UINT32(scigcr1, SCIState),
+        VMSTATE_UINT32(intreg, SCIState),
+        VMSTATE_UINT32(intlevel, SCIState),
+        VMSTATE_UINT32(flag, SCIState),
+        VMSTATE_UINT32(format, SCIState),
+        VMSTATE_UINT32(brs, SCIState),
+        VMSTATE_UINT32(buff, SCIState),
+        VMSTATE_UINT32(ioerr, SCIState),
+        VMSTATE_UINT32_ARRAY(vecoffset, SCIState, 2),
+        VMSTATE_UINT32_ARRAY(pio_control, SCIState, 9),
         VMSTATE_END_OF_LIST()
     }
 };
