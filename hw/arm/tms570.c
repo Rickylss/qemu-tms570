@@ -19,6 +19,7 @@
 #include "exec/address-spaces.h"
 #include "hw/block/flash.h"
 #include "qemu/error-report.h"
+#include "hw/char/tms570_sci.h"
 
 /* Board init */
 
@@ -114,8 +115,8 @@ static void tms570_init(MachineState *machine,
     sysbus_create_varargs("tms570-n2het", 0xfff7b900, pic[63], pic[73], NULL);
 
     /* SCI at address 0xfff7e500 */
-    //sysbus_create_simple("tms570-sci", 0xfff7e500, pic[3]);
-    sysbus_create_varargs("tms570-sci", 0xfff7e500, pic[64], pic[74], NULL);
+    //sysbus_create_varargs("tms570-sci", 0xfff7e500, pic[64], pic[74], NULL);
+    sci_create(0xfff7e500, pic[64], pic[74], serial_hds[0]);
 
     /* GPIO at address 0xfff7bc00 portA portB*/
     sysbus_create_simple("pl061", 0xfff7bc00, pic[9], pic[23], NULL);

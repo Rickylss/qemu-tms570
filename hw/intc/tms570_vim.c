@@ -151,6 +151,7 @@ static uint64_t vim_read(void *opaque, hwaddr offset,
         case 0x78: /* CAPEVT */
             return s->cap_to_rti;
         default:
+            vim_update(s);
             qemu_log_mask(LOG_GUEST_ERROR,
                       "vim_read: Bad offset %x\n", (int)offset);
             return 0;
