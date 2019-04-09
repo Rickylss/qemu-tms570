@@ -958,6 +958,9 @@ static const ARMCPRegInfo cortexr4_cp_reginfo[] = {
       .access = PL1_RW, .type = ARM_CP_CONST },
     { .name = "BTCM", .cp = 15, .opc1 = 0, .crn = 9, .crm = 1, .opc2 = 1,
       .access = PL1_RW, .type = ARM_CP_CONST },
+    /* Secondary Auxiliary Control Register */
+    { .name = "AuxCTL", .cp = 15, .opc1 = 0, .crn = 15, .crm = 0, .opc2 = 0,
+      .access = PL0_RW, .type = ARM_CP_CONST, .resetvalue = 0 },
     REGINFO_SENTINEL
 };
 
