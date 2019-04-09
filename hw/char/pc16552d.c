@@ -13,7 +13,7 @@
 #include "sysemu/char.h"
 #include "qemu/log.h"
 
-// #define DEBUG_PC16552D
+#define DEBUG_PC16552D
 #ifdef DEBUG_PC16552D
 #define pc16552d_debug(fmt, ...) fprintf(stderr, fmt, ## __VA_ARGS__)
 #else
@@ -61,7 +61,7 @@ typedef struct PC16552DState {
 */
 
 static uint64_t pc16552d_read_0(PC16552DState* s,uint32_t index){
-    pc16552d_debug("pc16552d read 0 index:%d\n",index);
+    // pc16552d_debug("pc16552d read 0 index:%d\n",index);
     uint64_t res = -1;
     if(!(s->ulcr[index] & 0x80u)){
         if(s->uiir[index] & 0x80u){
@@ -88,7 +88,7 @@ static uint64_t pc16552d_read_0(PC16552DState* s,uint32_t index){
     return res;
 }
 static uint64_t pc16552d_read_1(PC16552DState* s,uint32_t index){
-    pc16552d_debug("pc16552d read 1 index:%d\n",index);
+    // pc16552d_debug("pc16552d read 1 index:%d\n",index);
     if(s->ulcr[index] & 0x80u){
         return s->udmb[index];
     }else{
@@ -97,7 +97,7 @@ static uint64_t pc16552d_read_1(PC16552DState* s,uint32_t index){
 }
 static uint64_t pc16552d_read_uiir(PC16552DState* s,uint8_t index)
 {   
-    pc16552d_debug("pc16552d read uiir index:%d\n",index);
+    // pc16552d_debug("pc16552d read uiir index:%d\n",index);
 
     return s->uiir[index];
 }
@@ -153,18 +153,18 @@ inline static void pc16552d_send_trigger(PC16552DState* s,uint8_t index)
     qemu_set_irq(s->irq[index],1);
 }
 static void pc16552d_send_update(PC16552DState* s,uint8_t index){
-    pc16552d_debug("pc16552d send update\n");
+    // pc16552d_debug("pc16552d send update\n");
     // if(s->mode[index] && s->write[count]<PC16552D_FIFO_COUNT){
     // s->udsr[index] &= 0xfdu;    //TXRDY 置0
     // }
     if((s->uiir[index]>>7) && (s->write_count[index] > PC16552D_FIFO_COUNT-1)){
         s->write_count[index] = 0; 
-        if((s->uier[index] &0xf2u) >> 1){
+        if((s->uier[index] &0x2u) >> 1){
             // s->uiir[index] &= 0xf2u;
             pc16552d_send_trigger(s,index);         //UTHR empty interrupt
         } 
     }
-    if((!(s->uiir[index]>>7)) && ((s->uier[index] &0xf2u) >> 2)){
+    if((!(s->uiir[index]>>7)) && ((s->uier[index] &0x2u) >> 1)){
         // s->uiir[index] &= 0xf2u;
         pc16552d_send_trigger(s,index);             //UTHR empty interrupt
     }
@@ -203,18 +203,18 @@ inline static void pc16552d_write_1(PC16552DState* s,uint64_t val,uint8_t index)
 }
 static void pc16552d_transmitter_fifo_reset(PC16552DState* s,uint8_t index)
 {
-    pc16552d_debug("pc16552d transmitter fifo reset\n");
+    // pc16552d_debug("pc16552d transmitter fifo reset\n");
     s->write_count[index] = 0;
 }
 static void pc16552d_receiver_fifo_reset(PC16552DState* s,uint8_t index)
 {
-    pc16552d_debug("pc16552d receiver fifo reset\n");
+    // pc16552d_debug("pc16552d receiver fifo reset\n");
     s->read_pos[index] = 0;
     s->read_count[index] = 0;
 }
 static void pc16552d_write_2(PC16552DState* s,uint64_t val,uint8_t index){
     // uint8_t temp = val & 0xffu;
-    pc16552d_debug("pc16552d write 2 val:%lx    index:%d\n",val,index);
+    // pc16552d_debug("pc16552d write 2 val:%lx    index:%d\n",val,index);
     switch ((val & 0xc0u) >> 6)
     {
         case 0x0:
@@ -285,7 +285,7 @@ static void pc16552d_write(void *opaque, hwaddr offset, uint64_t val,unsigned si
 inline static void pc16552d_receive_trigger(PC16552DState* s,uint8_t index)
 {   
     if(s->uier[index]&0x1u){
-        pc16552d_debug(stderr,"pc16552d receive trigger\n");
+        pc16552d_debug("pc16552d receive trigger\n");
         s->uiir[index] = ((s->uiir[index]&0xf0u) | 0x4u);
         qemu_set_irq(s->irq[index],1);
     }
@@ -329,7 +329,7 @@ static int pc16552d_can_receive_1(void *opaque){
 
 static void pc16552d_receive_1(void *opaque, const uint8_t *buf, int size){
     PC16552DState* s = opaque;
-    pc16552d_debug(stderr,"pc16552d receive 1\n");
+    pc16552d_debug("pc16552d receive 1\n");
     pc16552d_debug("buf:%c\n",*buf);
     // qemu_set_irq(s->irq,0);
     pc16552d_put_fifo(s,*buf,0);

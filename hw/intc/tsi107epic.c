@@ -16,7 +16,7 @@
 #define TSI107TIEMERNUM  4
 #define TSI107IRQNUM   (TSI107TIEMERNUM+5)   //4 timers and 5 irq
 #define TSI107ISRMAX  TSI107IRQNUM   //I don't know the value,so ....
-// #define DEBUG_TSI107
+#define DEBUG_TSI107
 #ifdef DEBUG_TSI107
 #define tsi107_debug(fmt, ...) fprintf(stderr, fmt, ## __VA_ARGS__)
 #else
@@ -239,7 +239,7 @@ static void tsi107epic_update_pending(tsi107EPICState* s)
             irqindex++ ;
         }
         // s->irr = temp;
-        tsi107_debug("temp:%x   (temp>>8)&0xf:%x   pctpr:%x    \n",(temp >> 8)&0xf,temp,s->pctpr);
+        // tsi107_debug("temp:%x   (temp>>8)&0xf:%x   pctpr:%x    \n",(temp >> 8)&0xf,temp,s->pctpr);
         int i = 0;
         for(;i<TSI107ISRMAX;i++){
             if(((s->pctpr & 0xf) < ((temp >> 8)&0xf)) && (tsi107epic_get_isr_priority(s,i) < ((temp >> 8)&0xf))){
@@ -247,7 +247,7 @@ static void tsi107epic_update_pending(tsi107EPICState* s)
                 s->iack = temp & 0xff;
                 tsi107_debug("call tsi107epic_update   232\n");
                 qemu_set_irq(s->parent_irq,1);
-                tsi107_debug("qemu set irq level:1\n");
+                // tsi107_debug("qemu set irq level:1\n");
                 s->iackflag = 1;
                 break;
             }
@@ -287,17 +287,17 @@ static void tsi107epic_update(tsi107EPICState* s,int irqpin,int level){
 static void tsi107epic_set_irq(void* opaque,int irq,int level){
     tsi107_debug("call tsi107epic_set_irq  irq:%d   level:%d\n",irq,level);
     tsi107EPICState* s = (tsi107EPICState*)opaque;
-    tsi107_debug("timer0 gtvpr:%x\n",s->gtvpr[0]);
+    // tsi107_debug("timer0 gtvpr:%x\n",s->gtvpr[0]);
     if(level){
         if(irq>-1 && irq < TSI107IRQNUM){
             //timer
             if((irq < 4)&&!TSI107EPIC_GTVPR_M(s->gtvpr[irq])){
                 tsi107_debug("gtvpr_m irq:%d\n",irq);
-                tsi107_debug("gtvpr[0]:%x\n",s->gtvpr[0]);
+                // tsi107_debug("gtvpr[0]:%x\n",s->gtvpr[0]);
                 // TSI107EPIC_SET_PENDING(irq);
                 tsi107_set_bit(&s->pending,irq);
                 tsi107_set_bit(s->gtvpr+irq,30);// activity bit
-                tsi107_debug("1 gtvpr[0]:%x\n",s->gtvpr[0]);
+                // tsi107_debug("1 gtvpr[0]:%x\n",s->gtvpr[0]);
                 // s->gtvpr[irq] |= (1<<30);
             }else if((irq>4 && irq<9)&&!TSI107EPIC_IVPR_M(s->ivpr[irq-4])){
                 // TSI107EPIC_SET_PENDING(irq);
@@ -349,17 +349,17 @@ static uint32_t tsi107EPIC_read_iack(tsi107EPICState* s){
     tsi107_debug("read iack\n");
     uint32_t res = s->iack;
     if(s->iackflag){
-        tsi107_debug("---------1------\n");
+        // tsi107_debug("---------1------\n");
         uint32_t irqpin = (s->irr >> 12) & 0xf;
-        tsi107_debug("------irqpin:%d-----a-------\n",irqpin);
+        // tsi107_debug("------irqpin:%d-----a-------\n",irqpin);
         if(irqpin<4){
-            tsi107_debug("-------2------\n");
+            // tsi107_debug("-------2------\n");
             assert((s->gtvpr[irqpin] & 0xff) == (s->irr & 0xff));
             assert(!(s->gtvpr[irqpin]>>31));
             assert(((s->gtvpr[irqpin]>>16) &0xf) == ((s->irr >>8)&0xf));
             // s->isr  
         }else{
-            tsi107_debug("-----------3-------\n");
+            // tsi107_debug("-----------3-------\n");
             assert((s->ivpr[irqpin-4] & 0xff) == (s->irr & 0xff));
             assert(!(s->ivpr[irqpin-4]>>31));
             assert(((s->ivpr[irqpin-4]>>16) &0xf) == ((s->irr >>8)&0xf));
@@ -507,7 +507,7 @@ static void tsi107EPIC_write(void *opaque, hwaddr offset, uint64_t val,unsigned 
     tsi107_debug("tsi107 epic write offset:"TARGET_FMT_plx"  value:%lx\n",offset,val);
     uint64_t value = INTSWAP(val);
     tsi107EPICState* s = opaque;
-    tsi107_debug("intswap tsi107 epic write offset:"TARGET_FMT_plx"  value:%lx\n",offset,value);
+    // tsi107_debug("intswap tsi107 epic write offset:"TARGET_FMT_plx"  value:%lx\n",offset,value);
     switch (offset)
     {
         case GCR:/* constant-expression */
@@ -788,7 +788,7 @@ static uint64_t tsi107EPIC_read(void *opaque, hwaddr offset,unsigned size)
     }
     tsi107_debug("tsi107 epic read offset:"TARGET_FMT_plx"  res:%lx\n",offset,res);
     uint64_t rest = INTSWAP(res);
-    tsi107_debug("tsi107 epic read offset:"TARGET_FMT_plx"  rest:%lx\n",offset,rest);
+    // tsi107_debug("tsi107 epic read offset:"TARGET_FMT_plx"  rest:%lx\n",offset,rest);
     return rest;
 }
 
@@ -837,6 +837,7 @@ static void tsi107EPIC_class_init(ObjectClass* klass,void* data){
 static void tsi107epic_set_external_irq(void* opaque,int irq,int level){
     tsi107epic_set_irq(opaque,irq+4,level);
 }
+
 static void tsi107epic_init(Object* obj){
     DeviceState *dev = DEVICE(obj);
     tsi107EPICState *s = TSI107EPIC(obj);
@@ -856,7 +857,7 @@ static void tsi107epic_init(Object* obj){
     // value is according to arm_timer
         ptimer_set_freq(s->timer[i], 1000000);
     }
-   tsi107_debug("pit realized called \n");
+//    tsi107_debug("pit realized called \n");
 
 //    tsi107EPIC_reset(dev);
 //    vmstate_register(&sbd->qdev,-1,&vmstate_tsi107_epic,s);
