@@ -201,8 +201,10 @@ static inline void tsi107_set_bit(uint32_t* addr,int index){
 
 static uint32_t tsi107epic_get_isr_priority(tsi107EPICState* s,int index){
     uint32_t res;
+    if(!s->isr)
+        return 0;   //第一个中断服务请求，此时isr为空
     if(!((s->isr >>index) & 0x1))
-        return 0;
+        return 0x10;    //该位没在isr中
     if(index < 4){
         res = (s->gtvpr[index] >> 16) & 0xf;
     }else{
@@ -218,20 +220,20 @@ static uint32_t tsi107epic_get_isr_priority(tsi107EPICState* s,int index){
 */
 static void tsi107epic_update_pending(tsi107EPICState* s)
 {
-    tsi107_debug("update_pending  test:%x\n",s->test);
+    // tsi107_debug("update_pending  test:%x\n",s->test);
     uint32_t irqindex=0;
     if(!s->iackflag){
         uint32_t temp = 0;
-        tsi107_debug("timer0 gtvpr:%x\n",s->gtvpr[0]);
+        // tsi107_debug("timer0 gtvpr:%x\n",s->gtvpr[0]);
         while(irqindex < TSI107IRQNUM){
             if(TSI107EPIC_GET_PENDING(irqindex)){
                 //need queue???
                 if(irqindex<TSI107TIEMERNUM){
-                    if((temp >> 8) < ((s->gtvpr[irqindex] >> 16) & 0xf)){
+                    if(((temp >> 8)&0xfu) < ((s->gtvpr[irqindex] >> 16) & 0xf)){
                         temp = (s->gtvpr[irqindex] & 0xff) | ((s->gtvpr[irqindex] >>8) & 0xf00) | (irqindex<< 0xc);
                     }
                 }else{
-                    if((temp >> 8) <((s->ivpr[irqindex-4] >> 16) &0xf)){
+                    if(((temp >> 8)&0xfu) <((s->ivpr[irqindex-4] >> 16) &0xf)){
                         temp = (s->ivpr[irqindex-4] & 0xff) | ((s->ivpr[irqindex-4] >>8) & 0xf00) |(irqindex << 0xc);
                     }
                 }
