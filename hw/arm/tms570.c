@@ -119,7 +119,7 @@ static void tms570_init(MachineState *machine,
     sci_create(0xfff7e500, pic[64], pic[74], serial_hds[0]);
 
     /* GPIO at address 0xfff7bc00 portA portB*/
-    sysbus_create_simple("pl061", 0xfff7bc00, pic[9], pic[23], NULL);
+    sysbus_create_varargs("pl061", 0xfff7bc00, pic[9], pic[23], NULL);
 
     /* Memory map for tms570ls3137:  */
     /* 0xfff7b800 HET1 */

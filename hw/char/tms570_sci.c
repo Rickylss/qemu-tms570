@@ -268,6 +268,14 @@ static void sci_event(void *opaque, int event)
     }
 }
 
+static void sci_reset(DeviceState *dev)
+{
+    SCIState *s = SCI(dev);
+
+    /* reset values from PL061 TRM, Stellaris LM3S5P31 & LM3S8962 Data Sheet */
+    s->flag |= SCIFLR_TX_RDY;
+}
+
 static const MemoryRegionOps sci_ops = {
     .read = sci_read,
     .write = sci_write,
@@ -327,6 +335,7 @@ static void sci_class_init(ObjectClass *oc, void *data)
     dc->realize = sci_realize;
     dc->vmsd = &vmstate_sci;
     dc->props = sci_properties;
+    dc->reset = &sci_reset;
 }
 
 static const TypeInfo sci_info = {
