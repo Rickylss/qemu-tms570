@@ -70,7 +70,8 @@ static uint64_t pc16552d_read_0(PC16552DState* s,uint32_t index){
             if(s->read_count[index] > 0){
                 if(++s->read_pos[index] == 16)
                     s->read_pos[index] = 0;
-                if(!--s->read_count[index]){
+                s->read_count[index] -- ;
+                if(!s->read_count[index]){
                     s->udsr[index] |= 0x1u;
                     s->ulsr[index] &= 0xfeu;
                 }
@@ -156,15 +157,15 @@ static void pc16552d_send_update(PC16552DState* s,uint8_t index){
     // if(s->mode[index] && s->write[count]<PC16552D_FIFO_COUNT){
     // s->udsr[index] &= 0xfdu;    //TXRDY 置0
     // }
-    if((s->uiir[index]>>7) && (s->write_count[index] > PC16552D_FIFO_COUNT)){
+    if((s->uiir[index]>>7) && (s->write_count[index] > PC16552D_FIFO_COUNT-1)){
         s->write_count[index] = 0; 
-        if((s->uier[index] &0xf2u) >> 2){
-            s->uiir[index] |= 0xfcu;
+        if((s->uier[index] &0xf2u) >> 1){
+            // s->uiir[index] &= 0xf2u;
             pc16552d_send_trigger(s,index);         //UTHR empty interrupt
         } 
     }
     if((!(s->uiir[index]>>7)) && ((s->uier[index] &0xf2u) >> 2)){
-        s->uiir[index] |= 0xfcu;
+        // s->uiir[index] &= 0xf2u;
         pc16552d_send_trigger(s,index);             //UTHR empty interrupt
     }
     // if(!s->write_count[index])
@@ -284,13 +285,14 @@ static void pc16552d_write(void *opaque, hwaddr offset, uint64_t val,unsigned si
 inline static void pc16552d_receive_trigger(PC16552DState* s,uint8_t index)
 {   
     if(s->uier[index]&0x1u){
-        s->uiir[index] |= 0x8u;
+        pc16552d_debug(stderr,"pc16552d receive trigger\n");
+        s->uiir[index] = ((s->uiir[index]&0xf0u) | 0x4u);
         qemu_set_irq(s->irq[index],1);
     }
 }
 static void pc16552d_put_fifo(void *opaque, uint32_t value,uint8_t index)
 {
-    pc16552d_debug(stderr,"pc16552d value:%x\n",value);
+    pc16552d_debug("pc16552d value:%x\n",value);
     PC16552DState *s = (PC16552DState *)opaque;
     int slot;
     s->ulsr[index] |= 0x1u;
@@ -327,7 +329,7 @@ static int pc16552d_can_receive_1(void *opaque){
 
 static void pc16552d_receive_1(void *opaque, const uint8_t *buf, int size){
     PC16552DState* s = opaque;
-    pc16552d_debug("pc16552d_receive\n");
+    pc16552d_debug(stderr,"pc16552d receive 1\n");
     pc16552d_debug("buf:%c\n",*buf);
     // qemu_set_irq(s->irq,0);
     pc16552d_put_fifo(s,*buf,0);

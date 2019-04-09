@@ -16,7 +16,7 @@
 #define TSI107TIEMERNUM  4
 #define TSI107IRQNUM   (TSI107TIEMERNUM+5)   //4 timers and 5 irq
 #define TSI107ISRMAX  TSI107IRQNUM   //I don't know the value,so ....
-#define DEBUG_TSI107
+// #define DEBUG_TSI107
 #ifdef DEBUG_TSI107
 #define tsi107_debug(fmt, ...) fprintf(stderr, fmt, ## __VA_ARGS__)
 #else
@@ -365,7 +365,7 @@ static uint32_t tsi107EPIC_read_iack(tsi107EPICState* s){
             assert(((s->ivpr[irqpin-4]>>16) &0xf) == ((s->irr >>8)&0xf));
             if(s->ivpr[irqpin-4]>>22 & 0x1u){
                 //level-sensitive
-                return res;
+                // return res;
             }  
         }
         tsi107epic_update(s,irqpin,0);
@@ -456,7 +456,8 @@ static void tsi107_write_vpr(tsi107EPICState* s,int8_t index,uint64_t value){
             tsi107_debug("The VECTOR and PRIORITY values in ivpr should not be changed while the A bit is set.\n");
             return;
         }
-        s->ivpr[index] = value;    
+        s->ivpr[index-4] = value;    
+        tsi107_debug("ivpr[%d]:%x\n",index-4,s->ivpr[index-4]);
     }
 }
 static uint64_t tsi107_read_gtccr(tsi107EPICState* s,int8_t index){
@@ -660,7 +661,7 @@ static void tsi107EPIC_write(void *opaque, hwaddr offset, uint64_t val,unsigned 
             break;
         case IVPR4:
             tsi107_write_vpr(s,8,value);
-            tsi107_debug("ivpr[5]:%lx\n",s->ivpr[4]);
+            tsi107_debug("ivpr[5]:%x\n",s->ivpr[4]);
             break;
         case PCTPR:
             s->pctpr = value;
@@ -756,6 +757,21 @@ static uint64_t tsi107EPIC_read(void *opaque, hwaddr offset,unsigned size)
             break;
         case GTDR3:
             res = s->gtdr[3];
+            break;
+        case IVPR0:
+            res = s->ivpr[0];
+            break;
+        case IVPR1:
+            res = s->ivpr[1];
+            break;
+        case IVPR2:
+            res = s->ivpr[2];
+            break;
+        case IVPR3:
+            res = s->ivpr[3];
+            break;
+        case IVPR4:
+            res = s->ivpr[4];
             break;
         case PCTPR:
             res = s->pctpr;
