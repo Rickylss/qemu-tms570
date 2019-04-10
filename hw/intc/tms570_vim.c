@@ -90,6 +90,7 @@ static void vim_set_irq(void *opaque, int irq, int level)
 {
     VimState *s = (VimState *)opaque;
     int i, j;
+    int index, offset;
 
     if (irq >= VIM_MAX_IRQ) {
         fprintf(stderr, "%s: IRQ %d out of range\n", __func__, irq);
@@ -99,13 +100,13 @@ static void vim_set_irq(void *opaque, int irq, int level)
     /* channel mapping */
     for (i = 0; i < 24; i++) {
         for (j = 3; j >= 0; j--) {
-            if ((s->int_map_channel[i] >> (8 * j) & 0xff) - irq ) {
+            if (((s->int_map_channel[i] >> (8 * j)) & 0xff) - irq ) {
                 continue;
             } else
             {
                 int channel = (4 * i + (3 - j)) & 0xff;
                 int index = channel / 32;
-                int bit = channel % 32;
+                int bit = (channel % 32) - 1;
                 s->is_pending[index] |= 1u << bit;
             }
         }

@@ -25,6 +25,9 @@
 #define SCIFLR_TX_EMPTY (1 << 11)
 #define SCIFLR_TX_RDY (1 << 8)
 
+#define TXENA 0x02000000
+#define RXENA 0x01000000
+
 static const unsigned char sci_vect_offset[7] = 
  { 0x1, 0x3, 0x6, 0x7, 0x9, 0xb, 0xc };
 
@@ -81,8 +84,9 @@ static void sci_update(SCIState *s)
     //update SCIINTVECT0
     for(i = 0; i < 7; i++)
     {
-        if (en_pend_int0 && sci_int_mask[i]) { //smaller index has higer priority
+        if (en_pend_int0 & sci_int_mask[i]) { //smaller index has higer priority
             s->vecoffset[0] = sci_vect_offset[i];
+            qemu_set_irq(s->irq_level0, en_pend_int0);
             break;
         }
     }
@@ -90,14 +94,12 @@ static void sci_update(SCIState *s)
     //update SCIINTVECT1
     for(i = 0; i < 7; i++)
     {
-        if (en_pend_int1 && sci_int_mask[i]) { //smaller index has higer priority
+        if (en_pend_int1 & sci_int_mask[i]) { //smaller index has higer priority
             s->vecoffset[1] = sci_vect_offset[i];
+            qemu_set_irq(s->irq_level1, en_pend_int1);
             break;
         }
     }
-    
-    qemu_set_irq(s->irq_level0, en_pend_int0);
-    qemu_set_irq(s->irq_level1, en_pend_int1);
 }
 
 static uint64_t sci_read(void *opaque, hwaddr offset,
@@ -169,11 +171,12 @@ static int sci_transmit(void *opaque)
 {
     SCIState *s = (SCIState *)opaque;
 
-    if (s->scigcr1 & 0x02000000) { //TXENA
+    if (s->scigcr1 & TXENA) { //TXENA
         if ((s->flag & SCIFLR_TX_RDY) == 0) { // TX_RDY not pending
             s->flag |= SCIFLR_TX_RDY;
         }
     }
+    s->flag &= ~SCIFLR_TX_EMPTY;
     
     return (s->flag & SCIFLR_TX_RDY);
 }
@@ -246,7 +249,7 @@ static void sci_write(void *opaque, hwaddr offset,
             ch = value;
             if (s->chr && sci_transmit(s) && (s->scigcr1 & 0x80))
                 qemu_chr_fe_write(s->chr, &ch, 1);
-            s->buff = value;
+            s->flag |= SCIFLR_TX_EMPTY;
             break;
         case 0x90:
             s->ioerr = value;
@@ -263,7 +266,7 @@ static int sci_can_receive(void *opaque)
 {
     SCIState *s = (SCIState *)opaque;
 
-    if (s->scigcr1 & 0x01000000) { //RXENA
+    if (s->scigcr1 & RXENA) { //RXENA
         if ((s->flag & SCIFLR_RX_RDY) == 0) { // RX_RDY not pending
             s->flag |= SCIFLR_RX_RDY; 
         }
