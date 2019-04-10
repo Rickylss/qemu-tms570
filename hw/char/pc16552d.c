@@ -12,7 +12,7 @@
 #include "hw/sysbus.h"
 #include "sysemu/char.h"
 #include "qemu/log.h"
-
+#include "qemu/error-report.h"
 #define DEBUG_PC16552D
 #ifdef DEBUG_PC16552D
 #define pc16552d_debug(fmt, ...) fprintf(stderr, fmt, ## __VA_ARGS__)
@@ -52,7 +52,6 @@ typedef struct PC16552DState {
     uint8_t umsr[2];
     uint8_t uscr[2];
     uint8_t udsr[2];
-    // const unsigned char *id;
 } PC16552DState;
 
 /*register address 
@@ -61,7 +60,6 @@ typedef struct PC16552DState {
 */
 
 static uint64_t pc16552d_read_0(PC16552DState* s,uint32_t index){
-    // pc16552d_debug("pc16552d read 0 index:%d\n",index);
     uint64_t res = -1;
     if(!(s->ulcr[index] & 0x80u)){
         if(s->uiir[index] & 0x80u){
@@ -76,7 +74,6 @@ static uint64_t pc16552d_read_0(PC16552DState* s,uint32_t index){
                     s->ulsr[index] &= 0xfeu;
                 }
             }
-            // if(read_count == 0)
         }else{
                 //no fifo
             res = s->read_fifo[index][0];
@@ -87,24 +84,20 @@ static uint64_t pc16552d_read_0(PC16552DState* s,uint32_t index){
     }
     return res;
 }
-static uint64_t pc16552d_read_1(PC16552DState* s,uint32_t index){
-    // pc16552d_debug("pc16552d read 1 index:%d\n",index);
+inline static uint64_t pc16552d_read_1(PC16552DState* s,uint32_t index){
     if(s->ulcr[index] & 0x80u){
         return s->udmb[index];
     }else{
         return s->uier[index];
     }
 }
-static uint64_t pc16552d_read_uiir(PC16552DState* s,uint8_t index)
+inline static uint64_t pc16552d_read_uiir(PC16552DState* s,uint8_t index)
 {   
-    // pc16552d_debug("pc16552d read uiir index:%d\n",index);
-
     return s->uiir[index];
 }
 static uint64_t pc16552d_read(void *opaque, hwaddr offset,
                            unsigned size)
 {
-    // pc16552d_debug("pc16552d read offset:%lx\n",offset);
     PC16552DState* s = opaque;
     uint32_t index = 0;
     uint64_t res;
@@ -141,50 +134,34 @@ static uint64_t pc16552d_read(void *opaque, hwaddr offset,
             res = s->udsr[index];
             break;
         default:
-            fprintf(stderr,"read error offset:%lx (offset&0xffu):%lx\n",offset,offset&0xffu);
+            error_report("read error offset:%lx\n",offset);
             res = -1;
             break;
     }
-    // pc16552d_debug("pc16552d read res:%lx     offset:%lx\n",res,offset);
     return res;                           
 }  
+
 inline static void pc16552d_send_trigger(PC16552DState* s,uint8_t index)
 {   
     qemu_set_irq(s->irq[index],1);
 }
+
 static void pc16552d_send_update(PC16552DState* s,uint8_t index){
-    // pc16552d_debug("pc16552d send update\n");
-    // if(s->mode[index] && s->write[count]<PC16552D_FIFO_COUNT){
-    // s->udsr[index] &= 0xfdu;    //TXRDY 置0
-    // }
     if((s->uiir[index]>>7) && (s->write_count[index] > PC16552D_FIFO_COUNT-1)){
         s->write_count[index] = 0; 
         if((s->uier[index] &0x2u) >> 1){
-            // s->uiir[index] &= 0xf2u;
             pc16552d_send_trigger(s,index);         //UTHR empty interrupt
         } 
     }
     if((!(s->uiir[index]>>7)) && ((s->uier[index] &0x2u) >> 1)){
-        // s->uiir[index] &= 0xf2u;
         pc16552d_send_trigger(s,index);             //UTHR empty interrupt
     }
-    // if(!s->write_count[index])
-        // s->udsr[index] &= 0xfd;     //TXRDY 置0
 }
+
 inline static void pc16552d_write_0(PC16552DState* s,uint64_t val,uint8_t index){
-    pc16552d_debug("pc16552d write 0 value:%" PRIx64 "  index:%d\n",val,index);
     if((s->ulcr[index] & 0x80u) != 0x80u){          //thr
-        // if(1){
-        //         //fifo
-        // }else{
-        //         //no fifo
-        // }
         unsigned char ch = val;
         if (s->chr[index]){
-            // if(((s->write_count[index] == 1) && !s->mode[index]) ||
-            //         ((s->write_count[index] == PC16552D_FIFO_COUNT) && s->mode[index])){
-            //                 s->udsr[index] |= 0x2u;
-            // }
             qemu_chr_fe_write(s->chr[index], &ch, 1);
             s->write_count[index] ++ ;
         }
@@ -193,28 +170,27 @@ inline static void pc16552d_write_0(PC16552DState* s,uint64_t val,uint8_t index)
         s->udlb[index] = val;
     }
 }
+
 inline static void pc16552d_write_1(PC16552DState* s,uint64_t val,uint8_t index){
-    pc16552d_debug("pc16552d write 1 value:%" PRIx64 "  index:%d\n",val,index);
     if((s->ulcr[index] & 0x80u) != 0x80u){
         s->uier[index] = val;
     }else{
         s->udmb[index] = val;
     }
 }
-static void pc16552d_transmitter_fifo_reset(PC16552DState* s,uint8_t index)
+
+inline static void pc16552d_transmitter_fifo_reset(PC16552DState* s,uint8_t index)
 {
-    // pc16552d_debug("pc16552d transmitter fifo reset\n");
     s->write_count[index] = 0;
 }
-static void pc16552d_receiver_fifo_reset(PC16552DState* s,uint8_t index)
+
+inline static void pc16552d_receiver_fifo_reset(PC16552DState* s,uint8_t index)
 {
-    // pc16552d_debug("pc16552d receiver fifo reset\n");
     s->read_pos[index] = 0;
     s->read_count[index] = 0;
 }
+
 static void pc16552d_write_2(PC16552DState* s,uint64_t val,uint8_t index){
-    // uint8_t temp = val & 0xffu;
-    // pc16552d_debug("pc16552d write 2 val:%lx    index:%d\n",val,index);
     switch ((val & 0xc0u) >> 6)
     {
         case 0x0:
@@ -250,7 +226,6 @@ static void pc16552d_write(void *opaque, hwaddr offset, uint64_t val,unsigned si
 {
     PC16552DState*  s = opaque;
     uint8_t index = 0;
-    pc16552d_debug("pc16552d write,val:%" PRIx64 "  offset:%" PRIx64 "\n",val,offset);
     if((offset >> 2 &0xf) == 6){
         index = 1;
     }
@@ -277,22 +252,18 @@ static void pc16552d_write(void *opaque, hwaddr offset, uint64_t val,unsigned si
             s->uscr[index] = val;
             break;  
         default:
-            fprintf(stderr,"pc16552d write error,offset:%lx  val:%lx\n",offset,val);
             break;   
     }
-    // pc16552d_debug("pc16552d write,val:%lx  offset:%lx\n",val,offset);
 }
 inline static void pc16552d_receive_trigger(PC16552DState* s,uint8_t index)
 {   
     if(s->uier[index]&0x1u){
-        pc16552d_debug("pc16552d receive trigger\n");
         s->uiir[index] = ((s->uiir[index]&0xf0u) | 0x4u);
         qemu_set_irq(s->irq[index],1);
     }
 }
 static void pc16552d_put_fifo(void *opaque, uint32_t value,uint8_t index)
 {
-    pc16552d_debug("pc16552d value:%x\n",value);
     PC16552DState *s = (PC16552DState *)opaque;
     int slot;
     s->ulsr[index] |= 0x1u;
@@ -317,47 +288,29 @@ static void pc16552d_put_fifo(void *opaque, uint32_t value,uint8_t index)
         pc16552d_receive_trigger(s,index);
     }
 }
+
 static int pc16552d_can_receive_1(void *opaque){
-    // pc16552d_debug("pc16552d_can_receive\n");
-    // PC16552DState *s = (PC16552DState *)opaque;
-    // if (s->uiir[0] & 0x1u)
-    //     return s->read_count[0] < 16;
-    // else
-    //     return s->read_count[0] < 1;
     return 1;
 }
 
-static void pc16552d_receive_1(void *opaque, const uint8_t *buf, int size){
+inline static void pc16552d_receive_1(void *opaque, const uint8_t *buf, int size){
     PC16552DState* s = opaque;
-    pc16552d_debug("pc16552d receive 1\n");
-    pc16552d_debug("buf:%c\n",*buf);
-    // qemu_set_irq(s->irq,0);
     pc16552d_put_fifo(s,*buf,0);
 }
-static void pc16552d_event_1(void *opaque, int event){
-    pc16552d_debug("pc16552d_event\n");
+inline static void pc16552d_event_1(void *opaque, int event){
     if (event == CHR_EVENT_BREAK)
         pc16552d_put_fifo(opaque, 0x400,0);
 }
 
 
 static int pc16552d_can_receive_2(void *opaque){
-    // pc16552d_debug("pc16552d_can_receive\n");
-    // PC16552DState *s = (PC16552DState *)opaque;
-    // if (s->uiir[1] & 0x80u)
-    //     return s->read_count[1] < 16;
-    // else
-    //     return s->read_count[1] < 1;
     return 1;
 }
 
-static void pc16552d_receive_2(void *opaque, const uint8_t *buf, int size){
-    pc16552d_debug("pc16552d_receive\n");
-    pc16552d_debug("buf:%c\n",*buf);
+inline static void pc16552d_receive_2(void *opaque, const uint8_t *buf, int size){
     pc16552d_put_fifo(opaque,*buf,1);
 }
 static void pc16552d_event_2(void *opaque, int event){
-    pc16552d_debug("pc16552d_event\n");
     if (event == CHR_EVENT_BREAK)
         pc16552d_put_fifo(opaque, 0x400,1);
 }
@@ -375,8 +328,6 @@ static const VMStateDescription vmstate_pc16552d = {
     .fields = (VMStateField[]) {
         VMSTATE_UINT8_2DARRAY(read_fifo, PC16552DState,2,16),
         VMSTATE_UINT8_ARRAY(flags, PC16552DState,2),
-        // VMSTATE_UINT32(int_enabled, PC16552DState),
-        // VMSTATE_UINT32(int_level, PC16552DState),
         VMSTATE_UINT8_ARRAY(read_pos, PC16552DState,2),
         VMSTATE_UINT8_ARRAY(read_count, PC16552DState,2),
         VMSTATE_UINT8_ARRAY(read_trigger, PC16552DState,2),
@@ -413,12 +364,6 @@ static void pc16552d_init(Object *obj)
     sysbus_init_mmio(sbd, &s->iomem);
     sysbus_init_irq(sbd, &s->irq[0]);
     sysbus_init_irq(sbd,&s->irq[1]);
-    // s->read_trigger = 1;
-    // s->ifl = 0x12;
-    // s->cr = 0x300;
-    // s->flags = 0x90;
-
-    // s->id = PC16552D_id_arm;
 }
 
 static void pc16552d_realize(DeviceState *dev, Error **errp)

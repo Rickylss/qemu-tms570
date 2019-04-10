@@ -7,9 +7,8 @@
 #include "qom/object.h"
 #include "qemu/main-loop.h"
 #include "qemu/log.h"
+#include "qemu/error-report.h"
 #include "qemu/bitops.h"
-#define TYPE_TSI107_HOSTBRIDGE  "tsi107hostbridge"
-#define TYPE_TSI107GTR "tsi107GlobalandTimeRegister"
 #define TYPE_TSI107EPIC  "tsi107epic"
 #define TSI107EPIC(obj)  OBJECT_CHECK(tsi107EPICState,(obj),TYPE_TSI107EPIC)
 #define INTSWAP(x) ((((x)&0xff)<<24) | ((((x)>>8)& 0xff)<<16) |((((x)>>16)&0xff)<<8) |((((x)>>24)&0xff)))
@@ -204,7 +203,7 @@ static uint32_t tsi107epic_get_isr_priority(tsi107EPICState* s,int index){
     if(!s->isr)
         return 0;   //第一个中断服务请求，此时isr为空
     if(!((s->isr >>index) & 0x1))
-        return 0x10;    //该位没在isr中
+        return 0xff;    //该位没在isr中
     if(index < 4){
         res = (s->gtvpr[index] >> 16) & 0xf;
     }else{
@@ -220,11 +219,9 @@ static uint32_t tsi107epic_get_isr_priority(tsi107EPICState* s,int index){
 */
 static void tsi107epic_update_pending(tsi107EPICState* s)
 {
-    // tsi107_debug("update_pending  test:%x\n",s->test);
     uint32_t irqindex=0;
     if(!s->iackflag){
         uint32_t temp = 0;
-        // tsi107_debug("timer0 gtvpr:%x\n",s->gtvpr[0]);
         while(irqindex < TSI107IRQNUM){
             if(TSI107EPIC_GET_PENDING(irqindex)){
                 //need queue???
@@ -240,8 +237,6 @@ static void tsi107epic_update_pending(tsi107EPICState* s)
             }
             irqindex++ ;
         }
-        // s->irr = temp;
-        // tsi107_debug("temp:%x   (temp>>8)&0xf:%x   pctpr:%x    \n",(temp >> 8)&0xf,temp,s->pctpr);
         int i = 0;
         for(;i<TSI107ISRMAX;i++){
             if(((s->pctpr & 0xf) < ((temp >> 8)&0xf)) && (tsi107epic_get_isr_priority(s,i) < ((temp >> 8)&0xf))){
@@ -263,9 +258,6 @@ static void tsi107epic_update_pending(tsi107EPICState* s)
 *  功能2：a.当cpu读IACK register时，更新pending。
 */
 static void tsi107epic_update(tsi107EPICState* s,int irqpin,int level){
-    tsi107_debug("tsi107epic_update\n");
-    // qemu_set_irq(s->parent_irq,1);
-    // qemu_set_irq(s->parent_irq,0);
     if(level){
         //功能1
         tsi107epic_update_pending(s);
@@ -275,7 +267,6 @@ static void tsi107epic_update(tsi107EPICState* s,int irqpin,int level){
             s->pending &= ~(1u<<irqpin);
             s->isr |=  1<<irqpin;
             qemu_set_irq(s->parent_irq,0);
-            tsi107_debug("qemu set irq level:0\n");
         }
     }
 }
@@ -287,26 +278,16 @@ static void tsi107epic_update(tsi107EPICState* s,int irqpin,int level){
 *function: set pending,update IS
 */
 static void tsi107epic_set_irq(void* opaque,int irq,int level){
-    tsi107_debug("call tsi107epic_set_irq  irq:%d   level:%d\n",irq,level);
     tsi107EPICState* s = (tsi107EPICState*)opaque;
-    // tsi107_debug("timer0 gtvpr:%x\n",s->gtvpr[0]);
     if(level){
         if(irq>-1 && irq < TSI107IRQNUM){
             //timer
             if((irq < 4)&&!TSI107EPIC_GTVPR_M(s->gtvpr[irq])){
-                tsi107_debug("gtvpr_m irq:%d\n",irq);
-                // tsi107_debug("gtvpr[0]:%x\n",s->gtvpr[0]);
-                // TSI107EPIC_SET_PENDING(irq);
                 tsi107_set_bit(&s->pending,irq);
                 tsi107_set_bit(s->gtvpr+irq,30);// activity bit
-                // tsi107_debug("1 gtvpr[0]:%x\n",s->gtvpr[0]);
-                // s->gtvpr[irq] |= (1<<30);
             }else if((irq>4 && irq<9)&&!TSI107EPIC_IVPR_M(s->ivpr[irq-4])){
-                // TSI107EPIC_SET_PENDING(irq);
-                tsi107_debug("ivpr_m irq:%d\n",irq);
                 tsi107_set_bit(&s->pending,irq);
                 tsi107_set_bit(s->ivpr+(irq-4),30);
-                // s->ivpr[irq] |= (1<<30);
             }else{
                 printf("the irq:%d is masked\n",irq);
                 //next to do? manual note :when mask is cleared,the irq is requested .
@@ -319,6 +300,10 @@ static void tsi107epic_set_irq(void* opaque,int irq,int level){
     }
 }
 
+/*
+*
+*
+*/
 static uint8_t tsi107epic_get_highest_priority_isr(tsi107EPICState* s,uint32_t** target_vpr)
 {
     if(!s->isr){
@@ -368,7 +353,6 @@ static void tsi107epic_write_eoi(tsi107EPICState* s){
 }
 
 static uint32_t tsi107EPIC_read_iack(tsi107EPICState* s){
-    tsi107_debug("read iack\n");
     uint32_t res = s->iack;
     if(s->iackflag){
         // tsi107_debug("---------1------\n");
@@ -417,7 +401,6 @@ static void tsi107EPIC_reset(DeviceState *d)
         s->gtdr[i] = 1;
 
     }
-    tsi107_debug("tsi107epic reset\n");
 }
 
 
@@ -429,81 +412,67 @@ static void tsi107EPIC_reset(DeviceState *d)
 *     the status of the current interrupt source
 
 */
-// static void tsi107timer_update(void* opaque){
 
-// }
-// extern static uint64_t tsi107_read_gtccr(tsi107EPICState,int8_t index);
-/*
-*   index :timer index
-*/
 static void tsi107_write_gtbcr(tsi107EPICState* s,int8_t index,uint64_t value){
     uint32_t gtbcr = s->gtbcr[index];
     s->gtbcr[index] = value;
     s->test = 0xff89;
     //bit_31:   1 ----> 0  enable timer
     if(!(value >>31) && (gtbcr >> 31)){
-        // ptimer_set_count(s->timer[index],value & TSI107_RG_BASE_COUNT);
-        // ptimer_set_period();
-        tsi107_debug("timer run\n");
-        // ptimer_set_freq(s->timer[index],32768/16);
         ptimer_set_limit(s->timer[index],value & TSI107_RG_BASE_COUNT,1);
         ptimer_run(s->timer[index],0);
     }else if(!(gtbcr >> 31) && (value >> 31)){
-        tsi107_debug("timer stop\n");
         ptimer_stop(s->timer[index]);
     }else if(!(value>>31) && !(gtbcr>>31)){
         ptimer_set_limit(s->timer[index],value & TSI107_RG_BASE_COUNT,1);
     }else{
         printf("only set base count \n");
     }
-    tsi107_debug("tsi107 write gtbcr[%d]  value0:%" PRIx64 "  value1:%" PRIx64 "\n",index,gtbcr,value);
 }
 
+/*
+*   whether did vector or priority change?
+*/
 static inline bool is_tsi107_change_vp(uint32_t vpr,uint64_t value){
     return (vpr & 0xffu)^(value & 0xffu) || (vpr >>16 & 0xfu)^(value >> 16 & 0xfu);
 }
+
 static void tsi107_write_vpr(tsi107EPICState* s,int8_t index,uint64_t value){
-    tsi107_debug("write vpr\n");
     if(index<4){
         //timer vpr
         if(is_tsi107_change_vp(s->gtvpr[index],value) && tsi107_get_bit(s->gtvpr[index],30)){
-            tsi107_debug("The VECTOR and PRIORITY values in gtvpr should not be changed while the A bit is set.\n");
+            error_report("The VECTOR and PRIORITY values in gtvpr should not be changed while the A bit is set");
             return;
         }
         s->gtvpr[index] = value;
-        tsi107_debug("gtvpr[%d]:%" PRIx64 "\n",index,s->gtvpr[index]);
     }else{
         //ivpr
         if(is_tsi107_change_vp(s->ivpr[index-4],value) && tsi107_get_bit(s->ivpr[index-4],30)){
-            tsi107_debug("The VECTOR and PRIORITY values in ivpr should not be changed while the A bit is set.\n");
+            error_report("The VECTOR and PRIORITY values in ivpr should not be changed while the A bit is set.\n");
             return;
         }
         s->ivpr[index-4] = value;    
-        tsi107_debug("ivpr[%d]:%" PRIx64 "\n",index-4,s->ivpr[index-4]);
     }
 }
-static uint64_t tsi107_read_gtccr(tsi107EPICState* s,int8_t index){
+
+inline static uint64_t tsi107_read_gtccr(tsi107EPICState* s,int8_t index){
     uint64_t res = ptimer_get_count(s->timer[index]);
-    tsi107_debug("tsi107 read gtccr[%d] res:%" PRIx64 "\n",index,res);
     return res;
 }
-static void timer0_tick_callback(void *opaque){
-    tsi107_debug("timer0 tick callback \n");
+inline static void timer0_tick_callback(void *opaque){
     tsi107epic_set_irq(opaque,0,1);
 }
 
-static void timer1_tick_callback(void *opaque){
-    tsi107_debug("timer1 tick callback\n");
+inline static void timer1_tick_callback(void *opaque){
     tsi107epic_set_irq(opaque,1,1);
 }
-static void timer2_tick_callback(void *opaque){
-    tsi107_debug("timer2 tick callback\n");
+inline static void timer2_tick_callback(void *opaque){
     tsi107epic_set_irq(opaque,2,1);
 }
-static void timer3_tick_callback(void *opaque){
-    tsi107_debug("timer3 tick callback\n");
+inline static void timer3_tick_callback(void *opaque){
     tsi107epic_set_irq(opaque,3,1);
 }
+
 typedef   void (*tsi107timer_tick_call)(void*);
 static tsi107timer_tick_call  timer_tick_callback[TSI107TIEMERNUM]={
     timer0_tick_callback,
@@ -515,10 +484,8 @@ static tsi107timer_tick_call  timer_tick_callback[TSI107TIEMERNUM]={
 
 
 static void tsi107EPIC_write(void *opaque, hwaddr offset, uint64_t val,unsigned size){
-    tsi107_debug("tsi107 epic write offset:"TARGET_FMT_plx"  value:%lx\n",offset,val);
     uint64_t value = INTSWAP(val);
     tsi107EPICState* s = opaque;
-    // tsi107_debug("intswap tsi107 epic write offset:"TARGET_FMT_plx"  value:%lx\n",offset,value);
     switch (offset)
     {
         case GCR:/* constant-expression */
@@ -536,21 +503,9 @@ static void tsi107EPIC_write(void *opaque, hwaddr offset, uint64_t val,unsigned 
 
                 s->gcr |= ~(1<<31);
             }
-            if(value & (1<<29)){ //M
-                //mixed-mode
-            }else{
-                //pass-through mode 
-            }
             break;
         case EICR:
             s->eicr = value;
-            if(s->gcr << 29){
-                if(value & (1<<27)){
-                    //serial interrupts mode 
-                }else{
-                    //direct interrupts mode 
-                }
-            }
             break;
         // case EVI:  OR
         case PI:
@@ -567,13 +522,6 @@ static void tsi107EPIC_write(void *opaque, hwaddr offset, uint64_t val,unsigned 
             break;
         case GTBCR0:
             tsi107_write_gtbcr(s,0,value);
-            // s->gtbcr[0] = value;
-            // if(value & (1<<31)){
-            //     //inhibits counting for this timer
-            // }else{
-            //     //enable temer
-            //     s->gtccr[0] = value;
-            // }
             break;
         case GTBCR1:
             tsi107_write_gtbcr(s,1,value);
@@ -585,82 +533,20 @@ static void tsi107EPIC_write(void *opaque, hwaddr offset, uint64_t val,unsigned 
             tsi107_write_gtbcr(s,3,value);
             break;
         case GTVPR0:
-            // // s->gtvpr0 |= (value & ~(1 << 30));  //30 bit is read-only;
-            // if(value & (1<<31)){  //M
-            //     //further interrupts from this timer are disabled
-
-            // }else{
-            //     //If the mask bit is cleared while the corresponding IPR bit is set, INT is asserted to the processor 
-            //     s->gtvpr[0] |= ~(1<<31);
-            // }
-            // if(!(value & (1<<30))){ //A 
-            //     // this bit is read-only;
-            //     if((s->gtvpr[0] ^ value) & 0xf00ff){
-            //         //The VECTOR and PRIORITY values should not be changed while the A bit is set.
-            //         s->gtvpr[0] |= value & 0xf00ff;
-            //     }
-            // }
             tsi107_write_vpr(s,0,value);
             break;
         case GTVPR1:
-            // // s->gtvpr0 |= (value & ~(1 << 30));  //30 bit is read-only;
-            // if(value & (1<<31)){  //M
-            //     //further interrupts from this timer are disabled
-
-            // }else{
-            //     //If the mask bit is cleared while the corresponding IPR bit is set, INT is asserted to the processor 
-            //     s->gtvpr[1] |= ~(1<<31);
-            // }
-            // if(!(value & (1<<30))){ //A 
-            //     // this bit is read-only;
-            //     if((s->gtvpr[1] ^ value) & 0xf00ff){
-            //         //The VECTOR and PRIORITY values should not be changed while the A bit is set.
-            //         s->gtvpr[1] |= value & 0xf00ff;
-            //     }
-            // }
             tsi107_write_vpr(s,1,value);
             break;
         case GTVPR2:
-            // // s->gtvpr0 |= (value & ~(1 << 30));  //30 bit is read-only;
-            // if(value & (1<<31)){  //M
-            //     //further interrupts from this timer are disabled
-
-            // }else{
-            //     //If the mask bit is cleared while the corresponding IPR bit is set, INT is asserted to the processor 
-            //     s->gtvpr[2] |= ~(1<<31);
-            // }
-            // if(!(value & (1<<30))){ //A 
-            //     // this bit is read-only;
-            //     if((s->gtvpr[2] ^ value) & 0xf00ff){
-            //         //The VECTOR and PRIORITY values should not be changed while the A bit is set.
-            //         s->gtvpr[2] |= value & 0xf00ff;
-            //     }
-            // }
             tsi107_write_vpr(s,2,value);
             break;
         case GTVPR3:
-            // // s->gtvpr0 |= (value & ~(1 << 30));  //30 bit is read-only;
-            // if(value & (1<<31)){  //M
-            //     //further interrupts from this timer are disabled
-
-            // }else{
-            //     //If the mask bit is cleared while the corresponding IPR bit is set, INT is asserted to the processor 
-            //     s->gtvpr[3] |= ~(1<<31);
-            // }
-            // if(!(value & (1<<30))){ //A 
-            //     // this bit is read-only;
-            //     if((s->gtvpr[3] ^ value) & 0xf00ff){
-            //         //The VECTOR and PRIORITY values should not be changed while the A bit is set.
-            //         s->gtvpr[3] |= value & 0xf00ff;
-            //     }
-            // }
             tsi107_write_vpr(s,3,value);
             break;
         case IVPR0:
-            // if(value )
             tsi107_write_vpr(s,4,value);
-            break;
-        
+            break;       
         case IVPR1:
             tsi107_write_vpr(s,5,value);
             break;
@@ -672,14 +558,11 @@ static void tsi107EPIC_write(void *opaque, hwaddr offset, uint64_t val,unsigned 
             break;
         case IVPR4:
             tsi107_write_vpr(s,8,value);
-            tsi107_debug("ivpr[5]:%" PRIx64 "\n",s->ivpr[4]);
             break;
         case PCTPR:
             s->pctpr = value;
             break;
-        case EOI:
-            tsi107_debug("write eoi set irq\n");
-            // qemu_set_irq(s->parent_irq,0);            
+        case EOI:         
             tsi107epic_write_eoi(s);
             s->eoi = 0;
             break;
@@ -797,9 +680,7 @@ static uint64_t tsi107EPIC_read(void *opaque, hwaddr offset,unsigned size)
             qemu_log_mask(LOG_GUEST_ERROR,"%s: Bad offset %"HWADDR_PRIx"\n",__func__, offset);
             break;
     }
-    tsi107_debug("tsi107 epic read offset:"TARGET_FMT_plx"  res:%" PRIx64 "\n",offset,res);
     uint64_t rest = INTSWAP(res);
-    // tsi107_debug("tsi107 epic read offset:"TARGET_FMT_plx"  rest:%lx\n",offset,rest);
     return rest;
 }
 
@@ -835,7 +716,6 @@ static const VMStateDescription vmstate_tsi107_epic = {
             VMSTATE_UINT32(eoi,tsi107EPICState),
             VMSTATE_BOOL(iackflag,tsi107EPICState),
             VMSTATE_PTIMER_ARRAY(timer,tsi107EPICState,4),
-            VMSTATE_UINT32(test,tsi107EPICState),
             VMSTATE_END_OF_LIST()
         }
 };
@@ -859,19 +739,14 @@ static void tsi107epic_init(Object* obj){
     sysbus_init_irq(sbd,&s->parent_irq);
 
     //timer init
-    QEMUBH *bh[TSI107TIEMERNUM]; // mysterious
+    QEMUBH *bh[TSI107TIEMERNUM]; 
     int i = 0;
     for(i=0;i<TSI107TIEMERNUM;i++){
-        bh[i] = qemu_bh_new(timer_tick_callback[i], s); // magic
+        bh[i] = qemu_bh_new(timer_tick_callback[i], s);
         s->timer[i] = ptimer_init(bh[i]);
     // set freq statically,
-    // value is according to arm_timer
         ptimer_set_freq(s->timer[i], 1000000);
     }
-//    tsi107_debug("pit realized called \n");
-
-//    tsi107EPIC_reset(dev);
-//    vmstate_register(&sbd->qdev,-1,&vmstate_tsi107_epic,s);
 }
 static const TypeInfo tsi107EPIC_info = {
     .name           =   TYPE_TSI107EPIC,

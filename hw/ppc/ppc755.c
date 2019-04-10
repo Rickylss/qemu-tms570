@@ -1,5 +1,5 @@
 /*
- * QEMU PPC PREP hardware System Emulator
+ * QEMU PPC 755 hardware System Emulator
  *
  * Copyright (c) 2003-2007 Jocelyn Mayer
  *
