@@ -150,7 +150,7 @@ static uint64_t sci_read(void *opaque, hwaddr offset,
         case 0x34: //SCIRD RO
             s->flag &= ~(s->flag & SCIFLR_RX_RDY);
             sci_update(s);
-            if (s->chr) {
+            if (s->chr && (s->scigcr1 & 0x80)) {
                 qemu_chr_accept_input(s->chr);
             }
         case 0x30: //SCIED RO
@@ -184,20 +184,39 @@ static void sci_write(void *opaque, hwaddr offset,
     SCIState *s = (SCIState *)opaque;
     unsigned char ch;
 
+    /* The regs are writable only after the RESET bit is 1 */
+    if (offset == 0x00) { //privileged mode only
+        s->scigcr0 = value;
+        return;
+    }
+    
+    if ((s->scigcr0 & 0x01) != 0x01) {
+        return;
+    } 
+
     if (offset >= 0x3c && offset < 0x90) { //SCIPIO0~8
         s->pio_control[(offset - 0x3c) >> 2] = value;
+        sci_update(s);
+        return;
     }
     if (offset >= 0x20 && offset < 0x28) { //SCIINTVECT0~1
         //Read only
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "tms570_sci_read: readonly offset %x\n", (int)offset);
+        return;
     }
     
     switch (offset)
     {
-        case 0x00: //TODO: privileged mode only
-            s->scigcr0 = value;
-            break;
         case 0x04:
-            s->scigcr1 = value;
+            if ((value & 0x80) == 0x80) {   //set SWnRESET = 1 ready
+                s->scigcr1 |= 0x00000080;
+            } else
+            {   // SWnRESET = 0 star configur
+                s->scigcr1 = value;
+                s->flag = 0x0;
+                s->flag |= SCIFLR_TX_RDY | SCIFLR_TX_EMPTY;
+            }
             break;
         case 0x0C:
             s->intreg |= value;
@@ -225,7 +244,7 @@ static void sci_write(void *opaque, hwaddr offset,
             break;
         case 0x38: //SCITD RW
             ch = value;
-            if (s->chr && sci_transmit(s))
+            if (s->chr && sci_transmit(s) && (s->scigcr1 & 0x80))
                 qemu_chr_fe_write(s->chr, &ch, 1);
             s->buff = value;
             break;
@@ -272,8 +291,16 @@ static void sci_reset(DeviceState *dev)
 {
     SCIState *s = SCI(dev);
 
-    /* reset values from PL061 TRM, Stellaris LM3S5P31 & LM3S8962 Data Sheet */
-    s->flag |= SCIFLR_TX_RDY;
+    /* start reset */
+    s->scigcr0 = 0x0;
+
+    /* reset values */
+    s->scigcr1 = 0x0;
+    s->flag = 0x0;
+    s->flag |= SCIFLR_TX_RDY | SCIFLR_TX_EMPTY;
+
+    /* finish reset */
+    s->scigcr0 = 0x1;
 }
 
 static const MemoryRegionOps sci_ops = {
