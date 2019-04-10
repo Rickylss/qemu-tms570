@@ -111,7 +111,7 @@ static uint64_t pc16552d_read(void *opaque, hwaddr offset,
     if((offset>>2 &0xfu) == 6){
         index = 1;      //usart1
     }
-    switch (offset & 0xff)
+    switch (offset & 0xffu)
     {
         case 0:
             res=pc16552d_read_0(s,index);
@@ -141,7 +141,7 @@ static uint64_t pc16552d_read(void *opaque, hwaddr offset,
             res = s->udsr[index];
             break;
         default:
-            fprintf(stderr,"read error offset:%lx\n",offset);
+            fprintf(stderr,"read error offset:%lx (offset&0xffu):%lx\n",offset,offset&0xffu);
             res = -1;
             break;
     }

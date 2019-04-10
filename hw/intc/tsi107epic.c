@@ -319,30 +319,50 @@ static void tsi107epic_set_irq(void* opaque,int irq,int level){
     }
 }
 
+static uint8_t tsi107epic_get_highest_priority_isr(tsi107EPICState* s,uint32_t** target_vpr)
+{
+    if(!s->isr){
+        *target_vpr = NULL;  //isr 为空
+        return 0xff;
+    }
+    int index = 0;
+    uint8_t max_index = 0xffu;
+    uint32_t temp=0;
+    *target_vpr = &temp;
+    for(;index<TSI107ISRMAX;index++){
+        if(tsi107_get_bit(s->isr,index)){
+            if(index<4){
+                if((**target_vpr & 0xf0000u)< (s->gtvpr[index]&0xf0000u)){   //比较priority;
+                    *target_vpr = s->gtvpr+index;   
+                    max_index = index;
+                }  
+            }
+            if(index>3){
+                if((**target_vpr & 0xf0000u)< (s->ivpr[index-4]&0xf0000u)){  //比较priority;
+                    *target_vpr = s->ivpr+index-4;    
+                    max_index = index;                    
+                }
+            }
+        }
+    }
+    return max_index;
+}
+
 /*
 *
 *
 */
 static void tsi107epic_write_eoi(tsi107EPICState* s){
-    int index = 0;
-    for(;index<TSI107ISRMAX;index++){
-        if(tsi107_get_bit(s->isr,index)){
-            if(index < 4){
-                if((((s->gtvpr[index]) >> 16)&&0xf) == (s->pctpr & 0xf))
-                    // tsi107_debug("clear timer[%d] isr\n",index);
-                    tsi107_clear_bit(&s->isr,index);
-                if(!tsi107_get_bit(s->pending,index))
-                    // tsi107_debug("clear timer[%d] activity\n",index);
-                    tsi107_clear_bit(s->gtvpr+index,30);
-            }else{
-                if((((s->ivpr[index-4]) >> 16)&&0xf) == (s->pctpr & 0xf))
-                    // tsi107_debug("clear ivpr[%d] isr\n",index-4);
-                    tsi107_clear_bit(&s->isr,index);
-                if(!tsi107_get_bit(s->pending,index))
-                    // tsi107_debug("clear ivpr[%d] activity\n",index-4);
-                    tsi107_clear_bit(s->ivpr+(index-4),30);                
-            }
-        }
+    uint32_t * temp = NULL;
+    uint32_t** target_vpr = &temp;
+    uint8_t irqpin;
+    irqpin = tsi107epic_get_highest_priority_isr(s,target_vpr); 
+    if(irqpin<TSI107IRQNUM){
+        tsi107_clear_bit(&s->isr,irqpin);
+        if(!tsi107_get_bit(s->pending,irqpin))
+            tsi107_clear_bit(*target_vpr,30);
+    }else{
+        assert(irqpin == 0xffu);
     }
     tsi107epic_update_pending(s);
 }
@@ -468,19 +488,8 @@ static uint64_t tsi107_read_gtccr(tsi107EPICState* s,int8_t index){
     return res;
 }
 static void timer0_tick_callback(void *opaque){
-    // tsi107EPICState* s = opaque;
-
     tsi107_debug("timer0 tick callback \n");
     tsi107epic_set_irq(opaque,0,1);
-    // tsi107_read_gtccr(s,0);
-    // static int8_t flag;
-    // if(!flag){
-    //     flag = 1;
-    //     tsi107EPICState* s = opaque;
-    //     tsi107_debug("timer0 set irq\n");
-    //     qemu_set_irq(s->parent_irq,1);
-    //     // qemu_set_irq(s->parent_irq,0);
-    // }
 }
 
 static void timer1_tick_callback(void *opaque){
