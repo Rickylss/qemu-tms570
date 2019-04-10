@@ -172,7 +172,7 @@ static void pc16552d_send_update(PC16552DState* s,uint8_t index){
         // s->udsr[index] &= 0xfd;     //TXRDY 置0
 }
 inline static void pc16552d_write_0(PC16552DState* s,uint64_t val,uint8_t index){
-    pc16552d_debug("pc16552d write 0 value:%lx  index:%d\n",val,index);
+    pc16552d_debug("pc16552d write 0 value:%" PRIx64 "  index:%d\n",val,index);
     if((s->ulcr[index] & 0x80u) != 0x80u){          //thr
         // if(1){
         //         //fifo
@@ -194,7 +194,7 @@ inline static void pc16552d_write_0(PC16552DState* s,uint64_t val,uint8_t index)
     }
 }
 inline static void pc16552d_write_1(PC16552DState* s,uint64_t val,uint8_t index){
-    pc16552d_debug("pc16552d write 1 value:%lx  index:%d\n",val,index);
+    pc16552d_debug("pc16552d write 1 value:%" PRIx64 "  index:%d\n",val,index);
     if((s->ulcr[index] & 0x80u) != 0x80u){
         s->uier[index] = val;
     }else{
@@ -250,7 +250,7 @@ static void pc16552d_write(void *opaque, hwaddr offset, uint64_t val,unsigned si
 {
     PC16552DState*  s = opaque;
     uint8_t index = 0;
-    pc16552d_debug("pc16552d write,val:%lx  offset:%lx\n",val,offset);
+    pc16552d_debug("pc16552d write,val:%" PRIx64 "  offset:%" PRIx64 "\n",val,offset);
     if((offset >> 2 &0xf) == 6){
         index = 1;
     }

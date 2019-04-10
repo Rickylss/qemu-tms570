@@ -456,7 +456,7 @@ static void tsi107_write_gtbcr(tsi107EPICState* s,int8_t index,uint64_t value){
     }else{
         printf("only set base count \n");
     }
-    tsi107_debug("tsi107 write gtbcr[%d]  value0:%x  value1:%lx\n",index,gtbcr,value);
+    tsi107_debug("tsi107 write gtbcr[%d]  value0:%" PRIx64 "  value1:%" PRIx64 "\n",index,gtbcr,value);
 }
 
 static inline bool is_tsi107_change_vp(uint32_t vpr,uint64_t value){
@@ -471,7 +471,7 @@ static void tsi107_write_vpr(tsi107EPICState* s,int8_t index,uint64_t value){
             return;
         }
         s->gtvpr[index] = value;
-        tsi107_debug("gtvpr[%d]:%x\n",index,s->gtvpr[index]);
+        tsi107_debug("gtvpr[%d]:%" PRIx64 "\n",index,s->gtvpr[index]);
     }else{
         //ivpr
         if(is_tsi107_change_vp(s->ivpr[index-4],value) && tsi107_get_bit(s->ivpr[index-4],30)){
@@ -479,12 +479,12 @@ static void tsi107_write_vpr(tsi107EPICState* s,int8_t index,uint64_t value){
             return;
         }
         s->ivpr[index-4] = value;    
-        tsi107_debug("ivpr[%d]:%x\n",index-4,s->ivpr[index-4]);
+        tsi107_debug("ivpr[%d]:%" PRIx64 "\n",index-4,s->ivpr[index-4]);
     }
 }
 static uint64_t tsi107_read_gtccr(tsi107EPICState* s,int8_t index){
     uint64_t res = ptimer_get_count(s->timer[index]);
-    tsi107_debug("tsi107 read gtccr[%d] res:%lx\n",index,res);
+    tsi107_debug("tsi107 read gtccr[%d] res:%" PRIx64 "\n",index,res);
     return res;
 }
 static void timer0_tick_callback(void *opaque){
@@ -672,7 +672,7 @@ static void tsi107EPIC_write(void *opaque, hwaddr offset, uint64_t val,unsigned 
             break;
         case IVPR4:
             tsi107_write_vpr(s,8,value);
-            tsi107_debug("ivpr[5]:%x\n",s->ivpr[4]);
+            tsi107_debug("ivpr[5]:%" PRIx64 "\n",s->ivpr[4]);
             break;
         case PCTPR:
             s->pctpr = value;
@@ -797,7 +797,7 @@ static uint64_t tsi107EPIC_read(void *opaque, hwaddr offset,unsigned size)
             qemu_log_mask(LOG_GUEST_ERROR,"%s: Bad offset %"HWADDR_PRIx"\n",__func__, offset);
             break;
     }
-    tsi107_debug("tsi107 epic read offset:"TARGET_FMT_plx"  res:%lx\n",offset,res);
+    tsi107_debug("tsi107 epic read offset:"TARGET_FMT_plx"  res:%" PRIx64 "\n",offset,res);
     uint64_t rest = INTSWAP(res);
     // tsi107_debug("tsi107 epic read offset:"TARGET_FMT_plx"  rest:%lx\n",offset,rest);
     return rest;
