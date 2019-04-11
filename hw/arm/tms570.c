@@ -56,7 +56,8 @@ static void tms570_init(MachineState *machine,
     MemoryRegion *ram = g_new(MemoryRegion, 1);
     MemoryRegion *flash = g_new(MemoryRegion, 1);
     qemu_irq pic[95];
-    DeviceState *dev;
+    qemu_irq rti[2];
+    DeviceState *dev, *rtidev, *vimdev;
     int n;
 
 
@@ -97,23 +98,37 @@ static void tms570_init(MachineState *machine,
     memory_region_add_subregion(sysmem, 0x80000000, ram);
 
     /* VIM at address 0xfffffe00 */
-    dev = sysbus_create_varargs("tms570-vim", 0xfffffe00,
+    vimdev = sysbus_create_varargs("tms570-vim", 0xfffffe00,
                                 qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_IRQ),
                                 qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_FIQ),
                                 NULL);
     for (n = 0; n < 95; n++) { 
-        pic[n] = qdev_get_gpio_in(dev, n);
+        pic[n] = qdev_get_gpio_in(vimdev, n);
     }
     /* channel 0 and 1 are reserved */
     //sysbus_create_simple("esm", 0x, pic[0]);
     //sysbus_create_simple("adc", 0x, pic[1]);
 
     /* N2HET at address 0xfff7b800 */
-    //sysbus_create_simple("tms570-n2het", 0x101e3000, pic[10]);
-    sysbus_create_varargs("tms570-n2het", 0xfff7b800, pic[10], pic[24], NULL);
+    // sysbus_create_varargs("tms570-n2het", 0xfff7b800, pic[10], pic[24], NULL);
+    // sysbus_create_varargs("tms570-n2het", 0xfff7b900, pic[63], pic[73], NULL);
 
-    sysbus_create_varargs("tms570-n2het", 0xfff7b900, pic[63], pic[73], NULL);
-
+    /* RTI at address 0xfffffd00 
+     * RTI compare interrupt 0~3  pic 2~5
+     * RTI overflow interrupt 0~1 pic 6~7
+     * RTI timebase interrupt pic 8
+     */
+    rtidev = sysbus_create_varargs("tms570-rti", 0xfffffd00,
+                            pic[2], pic[3], pic[4], pic[5], pic[6], pic[7], pic[8], NULL);
+    for (n = 0; n < 2; n++)
+    {
+        rti[n] = qdev_get_gpio_in(rtidev, n);
+    }
+    
+    /* two special interrupts link to rti */
+    sysbus_connect_irq(vimdev, 2, rti[0]);
+    sysbus_connect_irq(vimdev, 3, rti[1]);
+    
     /* SCI at address 0xfff7e500 */
     //sysbus_create_varargs("tms570-sci", 0xfff7e500, pic[64], pic[74], NULL);
     sci_create(0xfff7e500, pic[64], pic[74], serial_hds[0]);
@@ -130,6 +145,7 @@ static void tms570_init(MachineState *machine,
     /* 0xfff7e400 SCI(LIN) */
     /* 0xfffff000 DMA */
     /* 0xffffe100 system register2 */
+    /* 0xfffffd00 RTI */
     /* 0xfffffe00 VIM */
     /* 0xffffff00 system register1 */
 

@@ -40,6 +40,8 @@ typedef struct VimState {
 
     qemu_irq irq;
     qemu_irq fiq;
+    qemu_irq rti0;
+    qemu_irq rti1;
 } VimState;
 
 /* Update interrupts */
@@ -285,6 +287,8 @@ static void vim_init(Object *obj)
     qdev_init_gpio_in(dev, vim_set_irq, 95);
     sysbus_init_irq(sbd, &s->irq);
     sysbus_init_irq(sbd, &s->fiq);
+    sysbus_init_irq(sbd, &s->rti0);
+    sysbus_init_irq(sbd, &s->rti1); // TODO add rti CAPEVT support
 }
 
 static const VMStateDescription vmstate_vim = {
