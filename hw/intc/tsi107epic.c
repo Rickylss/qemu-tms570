@@ -313,8 +313,8 @@ static void tsi107epic_set_irq(void* opaque,int irq,int level){
 }
 
 /*
-*
-*
+*function:在isr队列中找出最高优先级的中断源。返回源身份：irqpin,使用指针target_vpr返回该源对应的vpr 寄存器地址
+*若isr中无源（此时没有运行的中断服务程序）,irqpin 为0xff,target_vpr指向NULL
 */
 static uint8_t tsi107epic_get_highest_priority_isr(tsi107EPICState* s,uint32_t** target_vpr)
 {
@@ -346,7 +346,7 @@ static uint8_t tsi107epic_get_highest_priority_isr(tsi107EPICState* s,uint32_t**
 }
 
 /*
-*
+*function:当cpu对eoi 寄存器写操作，标志着当前中断服务程序的终结。此时需清理isr，若pending中没有该源的待处理中断请求，则清除VPR的activity位
 *
 */
 static void tsi107epic_write_eoi(tsi107EPICState* s){
@@ -410,15 +410,6 @@ static void tsi107EPIC_reset(DeviceState *d)
 }
 
 
-
-/*guideline         interrupt and timer initialization,reading the inerrupt acknowledge register(IACK)
-*   exceptions: 
-*   1、 EOI register,which returns zeros on reads
-*   2、 Activity bit (A) of the vector/priority registers, which returns the value according to
-*     the status of the current interrupt source
-
-*/
-
 static void tsi107_write_gtbcr(tsi107EPICState* s,int8_t index,uint64_t value){
     uint32_t gtbcr = s->gtbcr[index];
     s->gtbcr[index] = value;
@@ -442,6 +433,9 @@ static inline bool is_tsi107_change_vp(uint32_t vpr,uint64_t value){
     return (vpr & 0xffu)^(value & 0xffu) || (vpr >>16 & 0xfu)^(value >> 16 & 0xfu);
 }
 
+/*
+*   function:对vpr寄存器进行写操作
+*/
 static void tsi107_write_vpr(tsi107EPICState* s,int8_t index,uint64_t value){
     if(index<4){
         //timer vpr
@@ -464,6 +458,10 @@ inline static uint64_t tsi107_read_gtccr(tsi107EPICState* s,int8_t index){
     uint64_t res = ptimer_get_count(s->timer[index]);
     return res;
 }
+
+/*
+*   当GTCCR降为0时向EPIC触发中断请求。
+*/
 inline static void timer0_tick_callback(void *opaque){
     tsi107epic_set_irq(opaque,0,1);
 }
@@ -581,8 +579,7 @@ static void tsi107EPIC_write(void *opaque, hwaddr offset, uint64_t val,unsigned 
 
 
 static uint64_t tsi107EPIC_read(void *opaque, hwaddr offset,unsigned int size)
-{
-    
+{    
     tsi107EPICState* s = opaque;
     uint64_t res = 0;
     switch (offset)
@@ -742,9 +739,16 @@ static void tsi107EPIC_class_init(ObjectClass* klass,void* data){
     dc->reset = tsi107EPIC_reset;
     dc->vmsd = &vmstate_tsi107_epic;
 }
+
+/*
+*   function:外设向tsi107 epic 发送中断请求信号
+*/
 static void tsi107epic_set_external_irq(void* opaque,int irq,int level){
     tsi107epic_set_irq(opaque,irq+4,level);
 }
+
+
+
 static uint64_t tsi107config_addr_read(void *opaque, hwaddr offset,unsigned int size)
 {
     tsi107_debug("tsi107config  addr read   offset:%lx\n",offset);
@@ -764,7 +768,6 @@ static void tsi107config_addr_write(void *opaque, hwaddr offset, uint64_t val,un
 {   
     uint64_t val1 = INTSWAP(val);
     tsi107EPICState* s = opaque;
-    tsi107_debug("tsi107config addr write val:%lx offset:%lx\n",val1,offset);
     switch(offset){
         case 0:
             tsi107config_data_select(s,val1);
@@ -782,7 +785,6 @@ static const MemoryRegionOps tsi107_config_addr_ops = {
 };
 static uint64_t tsi107config_data_read(void* opaque,hwaddr offset,unsigned int size)
 {
-
     uint64_t res;
     tsi107EPICState* s = opaque;
     switch(offset){
@@ -793,7 +795,6 @@ static uint64_t tsi107config_data_read(void* opaque,hwaddr offset,unsigned int s
             error_report("tsi107config data offset:%lx\n",offset);
             break;
     }
-    tsi107_debug("tsi107config data read val:%lx offset:%lx\n",res,offset);
     return INTSWAP(res);
 }
 static void tsi107config_data_write(void* opaque,hwaddr offset,uint64_t val,unsigned int size)
@@ -814,8 +815,8 @@ static void tsi107epic_init(Object* obj){
     memory_region_init_io(&s->iomem,obj,&tsi107epic_ops,s,"tsi107epic",0x200000);
     sysbus_init_mmio(sbd,&s->iomem);
     memory_region_init_io(&s->configAddrmem,obj,&tsi107_config_addr_ops,s,"tsi107ConfigAddr",0x1FFFFF);
-    memory_region_add_subregion(address_space_mem, 0xfec00000, &s->configAddrmem);    //0xFEC0 0000 ------ 0xFEDF FFFF:   CONFIG_ADDR   //0xFEE0 0000 ------ 0xFEEF FFFF:   CONFIG_DATA
-    memory_region_init_io(&s->configDatamem,obj,&tsi107_config_data_ops,s,"tsi107ConfigData",0xFFFFF);
+    memory_region_add_subregion(address_space_mem, 0xfec00000, &s->configAddrmem);                          //0xFEC0 0000 ------ 0xFEDF FFFF:   CONFIG_ADDR  
+    memory_region_init_io(&s->configDatamem,obj,&tsi107_config_data_ops,s,"tsi107ConfigData",0xFFFFF);      //0xFEE0 0000 ------ 0xFEEF FFFF:   CONFIG_DATA
     memory_region_add_subregion(address_space_mem,0xfee00000,&s->configDatamem);
     qdev_init_gpio_in(dev,tsi107epic_set_external_irq,5);                           
     sysbus_init_irq(sbd,&s->parent_irq);
@@ -829,6 +830,7 @@ static void tsi107epic_init(Object* obj){
     // set freq statically,
         ptimer_set_freq(s->timer[i], 1000000);
     }
+    //配置空间固化？
     s->config.eumbbar = 0xfc000000;
 }
 static const TypeInfo tsi107EPIC_info = {
