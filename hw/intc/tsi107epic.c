@@ -9,6 +9,7 @@
 #include "qemu/log.h"
 #include "qemu/error-report.h"
 #include "qemu/bitops.h"
+#include "exec/address-spaces.h"
 #define TYPE_TSI107EPIC  "tsi107epic"
 #define TSI107EPIC(obj)  OBJECT_CHECK(tsi107EPICState,(obj),TYPE_TSI107EPIC)
 #define INTSWAP(x) ((((x)&0xff)<<24) | ((((x)>>8)& 0xff)<<16) |((((x)>>16)&0xff)<<8) |((((x)>>24)&0xff)))
@@ -142,6 +143,15 @@ enum TSI107EPIC_RG{
   EOI       =   0X600B0,      //Processor end-of-interrupt register              EOI_CODE
 };
 
+/*
+*   tsi107 config space
+*/
+typedef struct tsi107config{
+    uint32_t data;
+    uint32_t eumbbar;       //:0xfc000000;
+    //  ...
+    // uint32_t size;
+}tsi107config;
 
 /*
 * tsi107 epic Registers
@@ -156,7 +166,10 @@ typedef struct tsi107EPICState
 	SysBusDevice parent_obj;
 
 	MemoryRegion iomem;
-    
+    //tsi107 config space
+    MemoryRegion configAddrmem;
+    MemoryRegion configDatamem;
+    tsi107config config;
     qemu_irq   parent_irq;
     ptimer_state *timer[TSI107TIEMERNUM];
     uint32_t frr;           //OR
@@ -183,7 +196,6 @@ typedef struct tsi107EPICState
     uint32_t pctpr; //WR   indicate the relative importance of the task running on the local processor
     uint32_t iack;  //OR
     uint32_t eoi;  //OW
-    uint32_t test;
     bool iackflag;  //1:in iack cycle, 0:not in
 }tsi107EPICState;
 
@@ -355,22 +367,16 @@ static void tsi107epic_write_eoi(tsi107EPICState* s){
 static uint32_t tsi107EPIC_read_iack(tsi107EPICState* s){
     uint32_t res = s->iack;
     if(s->iackflag){
-        // tsi107_debug("---------1------\n");
         uint32_t irqpin = (s->irr >> 12) & 0xf;
-        // tsi107_debug("------irqpin:%d-----a-------\n",irqpin);
         if(irqpin<4){
-            // tsi107_debug("-------2------\n");
             assert((s->gtvpr[irqpin] & 0xff) == (s->irr & 0xff));
             assert(!(s->gtvpr[irqpin]>>31));
             assert(((s->gtvpr[irqpin]>>16) &0xf) == ((s->irr >>8)&0xf));
-            // s->isr  
         }else{
-            // tsi107_debug("-----------3-------\n");
             assert((s->ivpr[irqpin-4] & 0xff) == (s->irr & 0xff));
             assert(!(s->ivpr[irqpin-4]>>31));
             assert(((s->ivpr[irqpin-4]>>16) &0xf) == ((s->irr >>8)&0xf));
             if(s->ivpr[irqpin-4]>>22 & 0x1u){
-                //level-sensitive
                 // return res;
             }  
         }
@@ -416,7 +422,6 @@ static void tsi107EPIC_reset(DeviceState *d)
 static void tsi107_write_gtbcr(tsi107EPICState* s,int8_t index,uint64_t value){
     uint32_t gtbcr = s->gtbcr[index];
     s->gtbcr[index] = value;
-    s->test = 0xff89;
     //bit_31:   1 ----> 0  enable timer
     if(!(value >>31) && (gtbcr >> 31)){
         ptimer_set_limit(s->timer[index],value & TSI107_RG_BASE_COUNT,1);
@@ -483,7 +488,7 @@ static tsi107timer_tick_call  timer_tick_callback[TSI107TIEMERNUM]={
 
 
 
-static void tsi107EPIC_write(void *opaque, hwaddr offset, uint64_t val,unsigned size){
+static void tsi107EPIC_write(void *opaque, hwaddr offset, uint64_t val,unsigned int size){
     uint64_t value = INTSWAP(val);
     tsi107EPICState* s = opaque;
     switch (offset)
@@ -575,7 +580,7 @@ static void tsi107EPIC_write(void *opaque, hwaddr offset, uint64_t val,unsigned 
 
 
 
-static uint64_t tsi107EPIC_read(void *opaque, hwaddr offset,unsigned size)
+static uint64_t tsi107EPIC_read(void *opaque, hwaddr offset,unsigned int size)
 {
     
     tsi107EPICState* s = opaque;
@@ -690,11 +695,23 @@ static const MemoryRegionOps tsi107epic_ops = {
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
+static const VMStateDescription vmstate_tsi107_config = {
+    .name = "tsi107config",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .fields = (VMStateField[]){
+        VMSTATE_UINT32(eumbbar,tsi107config),
+        VMSTATE_UINT32(data, tsi107config),   
+        VMSTATE_END_OF_LIST()
+    }
+};
+
 static const VMStateDescription vmstate_tsi107_epic = {
         .name = TYPE_TSI107EPIC,
         .version_id = 1,
         .minimum_version_id = 1,
         .fields = (VMStateField[]){
+            VMSTATE_STRUCT(config,tsi107EPICState,1,vmstate_tsi107_config,tsi107config),
             VMSTATE_UINT32(frr,tsi107EPICState),
             VMSTATE_UINT32(gcr, tsi107EPICState),
             VMSTATE_UINT32(eicr, tsi107EPICState),
@@ -728,14 +745,79 @@ static void tsi107EPIC_class_init(ObjectClass* klass,void* data){
 static void tsi107epic_set_external_irq(void* opaque,int irq,int level){
     tsi107epic_set_irq(opaque,irq+4,level);
 }
+static uint64_t tsi107config_addr_read(void *opaque, hwaddr offset,unsigned int size)
+{
+    tsi107_debug("tsi107config  addr read   offset:%lx\n",offset);
+    return 1;
+}
+
+inline static void  tsi107config_data_select(tsi107EPICState* s,uint64_t val)
+{ 
+    if((val & 0xffu) == 0x78u){
+        tsi107_debug("1     eumbbar:%x\n",s->config.eumbbar);
+        s->config.data = s->config.eumbbar;
+        // tsi107_debug()
+    }
+}
+
+static void tsi107config_addr_write(void *opaque, hwaddr offset, uint64_t val,unsigned int size)
+{   
+    uint64_t val1 = INTSWAP(val);
+    tsi107EPICState* s = opaque;
+    tsi107_debug("tsi107config addr write val:%lx offset:%lx\n",val1,offset);
+    switch(offset){
+        case 0:
+            tsi107config_data_select(s,val1);
+            break;
+        default:
+            error_report("tsi107config addr write val:%lx   offset:%lx\n",val,offset);
+            break;
+    }
+}
+
+static const MemoryRegionOps tsi107_config_addr_ops = {
+    .read       = tsi107config_addr_read,
+    .write      = tsi107config_addr_write,
+    .endianness = DEVICE_NATIVE_ENDIAN,
+};
+static uint64_t tsi107config_data_read(void* opaque,hwaddr offset,unsigned int size)
+{
+
+    uint64_t res;
+    tsi107EPICState* s = opaque;
+    switch(offset){
+        case 0:
+            res = s->config.data;
+            break;
+        default:
+            error_report("tsi107config data offset:%lx\n",offset);
+            break;
+    }
+    tsi107_debug("tsi107config data read val:%lx offset:%lx\n",res,offset);
+    return INTSWAP(res);
+}
+static void tsi107config_data_write(void* opaque,hwaddr offset,uint64_t val,unsigned int size)
+{
+    tsi107_debug("tsi107config data write val:%lx   offset:%lx\n",val,offset);
+}
+static const MemoryRegionOps tsi107_config_data_ops ={
+    .read       = tsi107config_data_read,
+    .write      = tsi107config_data_write,
+    .endianness = DEVICE_NATIVE_ENDIAN,
+};
 
 static void tsi107epic_init(Object* obj){
     DeviceState *dev = DEVICE(obj);
     tsi107EPICState *s = TSI107EPIC(obj);
     SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
+    MemoryRegion *address_space_mem = get_system_memory();
     memory_region_init_io(&s->iomem,obj,&tsi107epic_ops,s,"tsi107epic",0x200000);
     sysbus_init_mmio(sbd,&s->iomem);
-    qdev_init_gpio_in(dev,tsi107epic_set_external_irq,5);
+    memory_region_init_io(&s->configAddrmem,obj,&tsi107_config_addr_ops,s,"tsi107ConfigAddr",0x1FFFFF);
+    memory_region_add_subregion(address_space_mem, 0xfec00000, &s->configAddrmem);    //0xFEC0 0000 ------ 0xFEDF FFFF:   CONFIG_ADDR   //0xFEE0 0000 ------ 0xFEEF FFFF:   CONFIG_DATA
+    memory_region_init_io(&s->configDatamem,obj,&tsi107_config_data_ops,s,"tsi107ConfigData",0xFFFFF);
+    memory_region_add_subregion(address_space_mem,0xfee00000,&s->configDatamem);
+    qdev_init_gpio_in(dev,tsi107epic_set_external_irq,5);                           
     sysbus_init_irq(sbd,&s->parent_irq);
 
     //timer init
@@ -747,6 +829,7 @@ static void tsi107epic_init(Object* obj){
     // set freq statically,
         ptimer_set_freq(s->timer[i], 1000000);
     }
+    s->config.eumbbar = 0xfc000000;
 }
 static const TypeInfo tsi107EPIC_info = {
     .name           =   TYPE_TSI107EPIC,
