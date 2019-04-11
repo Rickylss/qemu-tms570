@@ -17,8 +17,9 @@ common-obj-$(CONFIG_IMX) += imx_epit.o
 common-obj-$(CONFIG_IMX) += imx_gpt.o
 common-obj-$(CONFIG_LM32) += lm32_timer.o
 common-obj-$(CONFIG_MILKYMIST) += milkymist-sysctl.o
-obj-$(CONFIG_TMS570) += tms570_n2het.o
 
+#obj-$(CONFIG_TMS570) += tms570_n2het.o
+obj-$(CONFIG_TMS570) += tms570_rti.o
 obj-$(CONFIG_EXYNOS4) += exynos4210_mct.o
 obj-$(CONFIG_EXYNOS4) += exynos4210_pwm.o
 obj-$(CONFIG_EXYNOS4) += exynos4210_rtc.o
