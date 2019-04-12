@@ -3,7 +3,7 @@
  *
  * refer to:MPC8379 USER MANUAL CHARTER 22
  * Copyright (c) 2006 CodeSourcery.
- * Written by Paul Brook
+ * Written by qian tang
  *
  * This code is licensed under the GPL.
  */
@@ -95,6 +95,19 @@ inline static uint64_t pc16552d_read_uiir(PC16552DState* s,uint8_t index)
 {   
     return s->uiir[index];
 }
+
+// static void pc16552d_uart_update_parameters(PC16552DState* s)
+// {
+//     QEMUSerialSetParams  ssp;
+//     int speed,parity,data_bits,stop_bits,frame_size;
+
+//     ssp.speed       = speed;
+//     ssp.parity      = parity;
+//     ssp.data_bits   = data_bits;
+//     ssp.stop_bits   = stop_bits;
+
+//     qemu_chr_fe_ioctl(s->chr,CHR_IOCTL_SERIAL_SET_PARAMS,&ssp);
+// }
 static uint64_t pc16552d_read(void *opaque, hwaddr offset,
                            unsigned size)
 {
