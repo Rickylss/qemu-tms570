@@ -358,7 +358,9 @@ static int pc16552d_can_receive_2(void *opaque){
 }
 
 inline static void pc16552d_receive_2(void *opaque, const uint8_t *buf, int size){
-    pc16552d_put_fifo(opaque,*buf,1);
+    PC16552DState* s = opaque;
+    s->timeout_count[1] = 0;
+    pc16552d_put_fifo(s,*buf,1);
 }
 static void pc16552d_event_2(void *opaque, int event){
     if (event == CHR_EVENT_BREAK)
