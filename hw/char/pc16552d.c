@@ -25,11 +25,12 @@
 
 #define PC16552D_FIFO_COUNT 16
 
-
+#define UART_INPUT_CLK      50000000
 typedef struct PC16552DState {
     SysBusDevice parent_obj;
 
     MemoryRegion iomem;
+    uint64_t timeout_count[2];
     uint8_t read_fifo[2][PC16552D_FIFO_COUNT];
     uint8_t flags[2];
     uint8_t read_pos[2];
@@ -57,6 +58,7 @@ typedef struct PC16552DState {
 /*register address 
 *
 *       usart0:0x45xx       usart1:0x46xx
+*       cpu 读第一个寄存器
 */
 
 static uint64_t pc16552d_read_0(PC16552DState* s,uint32_t index){
@@ -84,6 +86,10 @@ static uint64_t pc16552d_read_0(PC16552DState* s,uint32_t index){
     }
     return res;
 }
+
+/*
+*   cpu读第2个寄存器
+*/
 inline static uint64_t pc16552d_read_1(PC16552DState* s,uint32_t index){
     if(s->ulcr[index] & 0x80u){
         return s->udmb[index];
@@ -100,7 +106,10 @@ inline static uint64_t pc16552d_read_uiir(PC16552DState* s,uint8_t index)
 // {
 //     QEMUSerialSetParams  ssp;
 //     int speed,parity,data_bits,stop_bits,frame_size;
+//     speed = UART_INPUT_CLK/(16* ((s->udmb << 8) | s->udlb));
 
+//     frame_size = 1;
+//     if(s->)
 //     ssp.speed       = speed;
 //     ssp.parity      = parity;
 //     ssp.data_bits   = data_bits;
@@ -109,7 +118,7 @@ inline static uint64_t pc16552d_read_uiir(PC16552DState* s,uint8_t index)
 //     qemu_chr_fe_ioctl(s->chr,CHR_IOCTL_SERIAL_SET_PARAMS,&ssp);
 // }
 static uint64_t pc16552d_read(void *opaque, hwaddr offset,
-                           unsigned size)
+                           unsigned int size)
 {
     PC16552DState* s = opaque;
     uint32_t index = 0;
@@ -121,6 +130,9 @@ static uint64_t pc16552d_read(void *opaque, hwaddr offset,
     {
         case 0:
             res=pc16552d_read_0(s,index);
+            if(s->chr[index]){
+                qemu_chr_accept_input(s->chr[index]);
+            }
             break;
         case 1:
             res = pc16552d_read_1(s,index);
@@ -235,7 +247,7 @@ static void pc16552d_write_2(PC16552DState* s,uint64_t val,uint8_t index){
         pc16552d_receiver_fifo_reset(s,index);
     }
 }
-static void pc16552d_write(void *opaque, hwaddr offset, uint64_t val,unsigned size)
+static void pc16552d_write(void *opaque, hwaddr offset, uint64_t val,unsigned int size)
 {
     PC16552DState*  s = opaque;
     uint8_t index = 0;
@@ -245,9 +257,6 @@ static void pc16552d_write(void *opaque, hwaddr offset, uint64_t val,unsigned si
     switch(offset & 0xffu){
         case 0:
             pc16552d_write_0(s,val,index);
-            if (s->chr[index]) {
-                qemu_chr_accept_input(s->chr[index]);
-            }
             break;
         case 1:
             pc16552d_write_1(s,val,index);    //ier
@@ -302,12 +311,31 @@ static void pc16552d_put_fifo(void *opaque, uint32_t value,uint8_t index)
     }
 }
 
+inline static void pc16552d_timeout_trigger(PC16552DState* s,uint8_t index)
+{
+    // if((s->uier[index] & 0x4u) == 0x4u){
+        pc16552d_debug("pc16552d timeout trigger\n");
+        s->timeout_count[index] = 0;
+        s->uiir[index] = ((s->uiir[index]&0xf0u)|0xcu);
+        qemu_set_irq(s->irq[index],1);
+    // }
+}
+
 static int pc16552d_can_receive_1(void *opaque){
+    PC16552DState* s = opaque;
+    if(((s->uier[0]&0x1u) == 0x1u) &&((s->uiir[0]&0x80u) == 0x80u)&&
+                 (s->timeout_count[0]++ > 0x100u) && s->read_count[0]>0 && 
+                    s->read_count[0]<s->read_trigger[0])
+    {
+        pc16552d_debug("pc16552d can receive test\n");
+        pc16552d_timeout_trigger(s,0);
+    }
     return 1;
 }
 
 inline static void pc16552d_receive_1(void *opaque, const uint8_t *buf, int size){
     PC16552DState* s = opaque;
+    s->timeout_count[0] = 0;
     pc16552d_put_fifo(s,*buf,0);
 }
 inline static void pc16552d_event_1(void *opaque, int event){
