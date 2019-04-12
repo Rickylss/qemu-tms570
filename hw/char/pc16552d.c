@@ -345,6 +345,14 @@ inline static void pc16552d_event_1(void *opaque, int event){
 
 
 static int pc16552d_can_receive_2(void *opaque){
+    PC16552DState* s = opaque;
+    if(((s->uier[1]&0x1u) == 0x1u) &&((s->uiir[1]&0x80u) == 0x80u)&&
+                 (s->timeout_count[1]++ > 0x100u) && s->read_count[1]>0 && 
+                    s->read_count[1]<s->read_trigger[1])
+    {
+        pc16552d_debug("pc16552d can receive test\n");
+        pc16552d_timeout_trigger(s,0);
+    }
     return 1;
 }
 
