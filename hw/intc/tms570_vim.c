@@ -92,7 +92,6 @@ static void vim_set_irq(void *opaque, int irq, int level)
 {
     VimState *s = (VimState *)opaque;
     int i, j;
-    int index, offset;
 
     if (irq >= VIM_MAX_IRQ) {
         fprintf(stderr, "%s: IRQ %d out of range\n", __func__, irq);
@@ -222,7 +221,7 @@ static void vim_write(void *opaque, hwaddr offset,
             break;
         default:
             qemu_log_mask(LOG_GUEST_ERROR,
-                      "vim_read: Bad offset %x\n", (int)offset);
+                      "vim_write: Bad offset %x\n", (int)offset);
             break;
     }
 

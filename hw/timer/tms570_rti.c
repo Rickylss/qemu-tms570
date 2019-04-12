@@ -70,11 +70,6 @@ static void dw_reset(RTIState *s)
     s->dww_reaction_ctrl = 0x5;
 }
 
-static void rti_update(RTIState *s)
-{
-    rti_update_irq(s);
-}
-
 static void rti_update_irq(RTIState *s)
 {
     /* enabled and pending interrupt */
@@ -82,16 +77,21 @@ static void rti_update_irq(RTIState *s)
 
     for (size_t i = 0; i < 4; i++)
     {
-        qemu_set_irq(irq_compare[i], en_pend_irq & (0x1 << i));
+        qemu_set_irq(s->irq_compare[i], en_pend_irq & (0x1 << i));
     }
 
     for (size_t i = 0; i < 2; i++)
     {
-        qemu_set_irq(irq_overflow[i], en_pend_irq & (0x1 << (i + 17)));
+        qemu_set_irq(s->irq_overflow[i], en_pend_irq & (0x1 << (i + 17)));
     }
 
-    qemu_set_irq(irq_timebase, en_pend_irq & (0x1 << 16));
+    qemu_set_irq(s->irq_timebase, en_pend_irq & (0x1 << 16));
     
+}
+
+static void rti_update(RTIState *s)
+{
+    rti_update_irq(s);
 }
 
 static void rti_update_compare(RTIState *s, int counter_num)
@@ -193,7 +193,9 @@ static uint64_t rti_read(void *opaque, hwaddr offset,
             return s->dww_size_ctrl;
 
         default:
-            break;
+             qemu_log_mask(LOG_GUEST_ERROR,
+                      "rti_read: Bad offset %x\n", (int)offset);
+            return 0;
     }
 
 }
@@ -255,7 +257,7 @@ static void rti_write(void *opaque, hwaddr offset,
             break;
         case 0x14: /* RTIUC0 */
             s->up_counter[0] = val;
-            ptimer_set_count(s->timer[0], s->upcounter[0]);
+            ptimer_set_count(s->timer[0], s->up_counter[0]);
             break; 
         case 0x18: /* RTICPUC0 */
             if ((s->timebase_ctrl & 0x1) == 0x0)
@@ -274,7 +276,7 @@ static void rti_write(void *opaque, hwaddr offset,
             break;
         case 0x34: /* RTIUC1 */
             s->up_counter[1] = val;
-            ptimer_set_count(s->timer[1], s->upcounter[1]);
+            ptimer_set_count(s->timer[1], s->up_counter[1]);
             break; 
         case 0x38: /* RTICPUC1 */
             s->compare_up_counter[1] = val;
@@ -366,6 +368,8 @@ static void rti_write(void *opaque, hwaddr offset,
             break;
 
         default:
+            qemu_log_mask(LOG_GUEST_ERROR,
+                      "rti_write: Bad offset %x\n", (int)offset);
             break;
     }
 
@@ -376,7 +380,6 @@ static void rti_get_cap(void *opaque, int irq, int level)
 {
     RTIState *s = (RTIState *)opaque;
     int capture = irq - 2;
-    int i;
 
     if (capture >= 2)
     {
@@ -409,7 +412,6 @@ static void rti_reset(DeviceState *dev)
     {
         s->free_running_counter[i] = 0;
         s->up_counter[i] = 0;
-        s->up_counter_reg[i] = 0;
         s->compare_up_counter[i] = 0;
         s->capture_free_counter[i] = 0;
         s->capture_up_counter[i] = 0;
@@ -418,7 +420,7 @@ static void rti_reset(DeviceState *dev)
     for (size_t i = 0; i < 4; i++)
     {
         s->compare[i] = 0;
-        s->update_compare = 0;
+        s->update_compare[i] = 0;
     }
     
     s->timebase_low = 0;
@@ -466,14 +468,15 @@ static void rti_watchdog_tick(void *opaque)
     if (ptimer_get_count(s->timer[2]) == 0 && s->rti_reset_flag)
     {
         s->rti_reset_flag = 0;
-        rti_reset(s);
+        rti_reset((DeviceState *)opaque);
     }
 }
 
 static void rti_init(Object *obj)
 {
     RTIState *s = RTI(obj);
-    SysBusDevice *dev = SYS_BUS_DEVICE(obj);
+    DeviceState *dev = DEVICE(obj);
+    SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
     QEMUBH *bh[3];
 
     memory_region_init_io(&s->iomem, obj, &rti_ops, s, "tms570-rti", 0x100);
@@ -494,23 +497,31 @@ static void rti_init(Object *obj)
 
     for (size_t i = 0; i < 4; i++)
     {
-        sysbus_init_irq(dev, &s->irq_compare[i]);
+        sysbus_init_irq(sbd, &s->irq_compare[i]);
     }
 
     for (size_t i = 0; i < 2; i++)
     {
-        sysbus_init_irq(dev, &s->irq_overflow[i]);
+        sysbus_init_irq(sbd, &s->irq_overflow[i]);
     }
 
-    sysbus_init_irq(dev, &s->irq_timebase);
+    sysbus_init_irq(sbd, &s->irq_timebase);
 }
+
+static const VMStateDescription vmstate_rti = {
+    .name = "tms570-rti",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .fields = (VMStateField[]) {
+        VMSTATE_END_OF_LIST()
+    }
+};
 
 static void rti_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *k = DEVICE_CLASS(klass);
 
-    k->relize = rti_realize;
-    k->props = rti_properties;
+    //k->props = rti_properties;
     k->vmsd = &vmstate_rti;
     k->reset = &rti_reset;
 }

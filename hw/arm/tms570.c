@@ -57,7 +57,8 @@ static void tms570_init(MachineState *machine,
     MemoryRegion *flash = g_new(MemoryRegion, 1);
     qemu_irq pic[95];
     qemu_irq rti[2];
-    DeviceState *dev, *rtidev, *vimdev;
+    DeviceState *dev;
+    SysBusDevice *vimdev;
     int n;
 
 
@@ -98,13 +99,14 @@ static void tms570_init(MachineState *machine,
     memory_region_add_subregion(sysmem, 0x80000000, ram);
 
     /* VIM at address 0xfffffe00 */
-    vimdev = sysbus_create_varargs("tms570-vim", 0xfffffe00,
+    dev = sysbus_create_varargs("tms570-vim", 0xfffffe00,
                                 qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_IRQ),
                                 qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_FIQ),
                                 NULL);
     for (n = 0; n < 95; n++) { 
-        pic[n] = qdev_get_gpio_in(vimdev, n);
+        pic[n] = qdev_get_gpio_in(dev, n);
     }
+    vimdev = SYS_BUS_DEVICE(dev);
     /* channel 0 and 1 are reserved */
     //sysbus_create_simple("esm", 0x, pic[0]);
     //sysbus_create_simple("adc", 0x, pic[1]);
@@ -118,23 +120,23 @@ static void tms570_init(MachineState *machine,
      * RTI overflow interrupt 0~1 pic 6~7
      * RTI timebase interrupt pic 8
      */
-    rtidev = sysbus_create_varargs("tms570-rti", 0xfffffd00,
+    dev = sysbus_create_varargs("tms570-rti", 0xfffffd00,
                             pic[2], pic[3], pic[4], pic[5], pic[6], pic[7], pic[8], NULL);
     for (n = 0; n < 2; n++)
     {
-        rti[n] = qdev_get_gpio_in(rtidev, n);
+        rti[n] = qdev_get_gpio_in(dev, n);
     }
     
     /* two special interrupts link to rti */
     sysbus_connect_irq(vimdev, 2, rti[0]);
     sysbus_connect_irq(vimdev, 3, rti[1]);
-    
+
     /* SCI at address 0xfff7e500 */
     //sysbus_create_varargs("tms570-sci", 0xfff7e500, pic[64], pic[74], NULL);
     sci_create(0xfff7e500, pic[64], pic[74], serial_hds[0]);
 
     /* GPIO at address 0xfff7bc00 portA portB*/
-    sysbus_create_varargs("pl061", 0xfff7bc00, pic[9], pic[23], NULL);
+    //sysbus_create_varargs("pl061", 0xfff7bc00, pic[9], pic[23], NULL);
 
     /* Memory map for tms570ls3137:  */
     /* 0xfff7b800 HET1 */
