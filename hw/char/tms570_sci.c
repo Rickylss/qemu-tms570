@@ -215,7 +215,7 @@ static void sci_write(void *opaque, hwaddr offset,
             if ((value & 0x80) == 0x80) {   //set SWnRESET = 1 ready
                 s->scigcr1 |= 0x00000080;
             } else
-            {   // SWnRESET = 0 star configur
+            {   // SWnRESET = 0 start configur
                 s->scigcr1 = value;
                 s->flag = 0x0;
                 s->flag |= SCIFLR_TX_RDY | SCIFLR_TX_EMPTY;

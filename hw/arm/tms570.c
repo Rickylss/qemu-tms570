@@ -55,6 +55,8 @@ static void tms570_init(MachineState *machine,
     MemoryRegion *sysmem = get_system_memory();
     MemoryRegion *ram = g_new(MemoryRegion, 1);
     MemoryRegion *flash = g_new(MemoryRegion, 1);
+    uint64_t flash_size = 3 * 1024 * 1024;
+    uint64_t ram_size = 4 * 1024 *1024;
     qemu_irq pic[95];
     qemu_irq rti[2];
     DeviceState *dev;
@@ -88,9 +90,9 @@ static void tms570_init(MachineState *machine,
     cpu = ARM_CPU(cpuobj);
 
     memory_region_allocate_system_memory(flash, NULL, "tms570ls31x.flash",
-                                         3*1024*1024);
+                                         flash_size);
     memory_region_allocate_system_memory(ram, NULL, "tms570ls31x.ram",
-                                         machine->ram_size);
+                                         ram_size);
 
     /* ??? RAM should repeat to fill physical memory space.  */
     /* FLASH at address 0x00000000. */
@@ -177,7 +179,6 @@ static void tms570_ls3137_class_init(ObjectClass *oc, void *data)
     mc->no_parallel = 1;
     mc->no_floppy = 1;
     mc->no_cdrom = 1;
-    mc->default_ram_size = 128 * 1024 * 1024;
 }
 
 static const TypeInfo tms570_ls3137_type = {
