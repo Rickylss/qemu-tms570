@@ -292,6 +292,7 @@ enum {
 #endif
     CPU_POWERPC_e200z5             = 0x81000000,
     CPU_POWERPC_e200z6             = 0x81120000,
+    CPU_POWERPC_e200z7             = 0x81140000,
     /* MPC55xx microcontrollers */
 #define CPU_POWERPC_MPC55xx          CPU_POWERPC_MPC5567
 #if 0

@@ -24,3 +24,4 @@ obj-$(CONFIG_E500) += mpc8544_guts.o ppce500_spin.o
 # PowerPC 440 Xilinx ML507 reference board.
 obj-$(CONFIG_XILINX) += virtex_ml507.o
 obj-$(CONFIG_PPC755) += ppc755.o
+obj-$(CONFIG_MPC5675) += mpc5675.o

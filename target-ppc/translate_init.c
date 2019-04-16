@@ -4671,6 +4671,7 @@ static void init_proc_e200 (CPUPPCState *env)
     env->dcache_line_size = 32;
     env->icache_line_size = 32;
     /* XXX: TODO: allocate internal IRQ controller */
+    ppce200_irq_init(ppc_env_get_cpu(env));
 }
 
 POWERPC_FAMILY(e200)(ObjectClass *oc, void *data)

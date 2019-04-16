@@ -77,6 +77,7 @@ static inline void ppce500_irq_init(PowerPCCPU *cpu) {}
 #else
 void ppc40x_irq_init(PowerPCCPU *cpu);
 void ppce500_irq_init(PowerPCCPU *cpu);
+void ppce200_irq_init(PowerPCCPU *cpu);
 void ppc6xx_irq_init(PowerPCCPU *cpu);
 void ppc970_irq_init(PowerPCCPU *cpu);
 void ppcPOWER7_irq_init(PowerPCCPU *cpu);
