@@ -98,7 +98,7 @@ static void tms570_init(MachineState *machine,
     /* FLASH at address 0x00000000. */
     memory_region_add_subregion(sysmem, 0x00000000, flash);
     /* SDRAM at address 0x80000000.  */
-    memory_region_add_subregion(sysmem, 0x80000000, ram);
+    memory_region_add_subregion(sysmem, 0x08000000, ram);
 
     /* VIM at address 0xfffffe00 */
     dev = sysbus_create_varargs("tms570-vim", 0xfffffe00,
