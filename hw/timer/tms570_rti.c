@@ -86,7 +86,7 @@ static void rti_update_irq(RTIState *s)
     }
 
     qemu_set_irq(s->irq_timebase, en_pend_irq & (0x1 << 16));
-    
+
 }
 
 static void rti_update(RTIState *s)
@@ -107,7 +107,7 @@ static void rti_update_compare(RTIState *s, int counter_num)
             }
         }
     }
-    
+
     rti_update_irq(s);
 }
 
@@ -235,11 +235,11 @@ static void rti_write(void *opaque, hwaddr offset,
                     ptimer_stop(s->timer[i]);
                 }
             }
-            if ((s->global_ctrl & 0x8000) != 0x8000)
-            {   /* halting debug mode */
-                ptimer_stop(s->timer[0]);
-                ptimer_stop(s->timer[1]);
-            }
+            // if ((s->global_ctrl & 0x8000) != 0x8000)
+            // {   /* halting debug mode */
+            //     ptimer_stop(s->timer[0]);
+            //     ptimer_stop(s->timer[1]);
+            // }
             break;
         case 0x04: /* RTITBCTRL */
             s->timebase_ctrl = val; //todo
