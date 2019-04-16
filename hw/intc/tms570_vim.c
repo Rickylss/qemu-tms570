@@ -108,7 +108,13 @@ static void vim_set_irq(void *opaque, int irq, int level)
                 int channel = (4 * i + (3 - j)) & 0xff;
                 int index = channel / 32;
                 int bit = (channel % 32) - 1;
-                s->is_pending[index] |= 1u << bit;
+                if (level == 0)
+                {
+                    s->is_pending[index] |= 0u << bit;
+                } else
+                {
+                    s->is_pending[index] |= 1u << bit;
+                }
             }
         }
     }

@@ -81,25 +81,39 @@ static void sci_update(SCIState *s)
     en_pend_int0 = s->flag & s->intreg & INT_MASK & ~s->intlevel;
     en_pend_int1 = s->flag & s->intreg & INT_MASK & s->intlevel;
 
-    //update SCIINTVECT0
-    for(i = 0; i < 7; i++)
+    
+    //update SCIINTVECT1
+    if (en_pend_int1 == 0)
     {
-        if (en_pend_int0 & sci_int_mask[i]) { //smaller index has higer priority
-            s->vecoffset[0] = sci_vect_offset[i];
-            qemu_set_irq(s->irq_level0, en_pend_int0);
-            break;
+        qemu_set_irq(s->irq_level1, en_pend_int1);
+    } else
+    {
+        for(i = 0; i < 7; i++)
+        {
+            if (en_pend_int1 & sci_int_mask[i]) { //smaller index has higer priority
+                s->vecoffset[1] = sci_vect_offset[i];
+                qemu_set_irq(s->irq_level1, en_pend_int1);
+                break;
+            }
         }
     }
 
-    //update SCIINTVECT1
-    for(i = 0; i < 7; i++)
+    //update SCIINTVECT0
+    if (en_pend_int0 == 0)
     {
-        if (en_pend_int1 & sci_int_mask[i]) { //smaller index has higer priority
-            s->vecoffset[1] = sci_vect_offset[i];
-            qemu_set_irq(s->irq_level1, en_pend_int1);
-            break;
+        qemu_set_irq(s->irq_level0, en_pend_int0);
+    } else
+    {
+        for(i = 0; i < 7; i++)
+        {
+            if (en_pend_int0 & sci_int_mask[i]) { //smaller index has higer priority
+                s->vecoffset[0] = sci_vect_offset[i];
+                qemu_set_irq(s->irq_level0, en_pend_int0);
+                break;
+            }
         }
     }
+    
 }
 
 static uint64_t sci_read(void *opaque, hwaddr offset,

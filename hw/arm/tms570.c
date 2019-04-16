@@ -53,10 +53,14 @@ static void tms570_init(MachineState *machine,
     Object *cpuobj;
     ARMCPU *cpu;
     MemoryRegion *sysmem = get_system_memory();
-    MemoryRegion *ram = g_new(MemoryRegion, 1);
     MemoryRegion *flash = g_new(MemoryRegion, 1);
+    MemoryRegion *ram = g_new(MemoryRegion, 1);
+    MemoryRegion *async_ram = g_new(MemoryRegion, 1);
+    MemoryRegion *sdram = g_new(MemoryRegion, 1);
     uint64_t flash_size = 3 * 1024 * 1024;
-    uint64_t ram_size = 4 * 1024 *1024;
+    uint64_t ram_size = 256 * 1024;
+    uint64_t async_ram_size = 16 * 3 * 1024 * 1024;
+    uint64_t sdram_size = 128 * 1024 * 1024;
     qemu_irq pic[95];
     qemu_irq rti[2];
     DeviceState *dev;
@@ -93,12 +97,21 @@ static void tms570_init(MachineState *machine,
                                          flash_size);
     memory_region_allocate_system_memory(ram, NULL, "tms570ls31x.ram",
                                          ram_size);
-
+    memory_region_allocate_system_memory(async_ram, NULL, "tms570ls31x.async.ram",
+                                         async_ram_size);
+    memory_region_allocate_system_memory(sdram, NULL, "tms570ls31x.sdram",
+                                         sdram_size);
     /* ??? RAM should repeat to fill physical memory space.  */
     /* FLASH at address 0x00000000. */
     memory_region_add_subregion(sysmem, 0x00000000, flash);
-    /* SDRAM at address 0x80000000.  */
+    /* RAM at address 0x08000000.  */
     memory_region_add_subregion(sysmem, 0x08000000, ram);
+    /* ASYNCRAM at address 0x60000000.  */
+    memory_region_add_subregion(sysmem, 0x60000000, async_ram);
+    /* SDRAM at address 0x80000000.  */
+    memory_region_add_subregion(sysmem, 0x80000000, sdram);
+
+    machine->ram_size = flash_size + ram_size;
 
     /* VIM at address 0xfffffe00 */
     dev = sysbus_create_varargs("tms570-vim", 0xfffffe00,
