@@ -51,73 +51,73 @@ static const unsigned int ppc440ep_sdram_bank_sizes[] = {
 
 static hwaddr entry;
 
-static int bamboo_load_device_tree(hwaddr addr,
-                                     uint32_t ramsize,
-                                     hwaddr initrd_base,
-                                     hwaddr initrd_size,
-                                     const char *kernel_cmdline)
-{
-    int ret = -1;
-    uint32_t mem_reg_property[] = { 0, 0, cpu_to_be32(ramsize) };
-    char *filename;
-    int fdt_size;
-    void *fdt;
-    uint32_t tb_freq = 400000000;
-    uint32_t clock_freq = 400000000;
+// static int bamboo_load_device_tree(hwaddr addr,
+//                                      uint32_t ramsize,
+//                                      hwaddr initrd_base,
+//                                      hwaddr initrd_size,
+//                                      const char *kernel_cmdline)
+// {
+//     int ret = -1;
+//     uint32_t mem_reg_property[] = { 0, 0, cpu_to_be32(ramsize) };
+//     char *filename;
+//     int fdt_size;
+//     void *fdt;
+//     uint32_t tb_freq = 400000000;
+//     uint32_t clock_freq = 400000000;
 
-    filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, BINARY_DEVICE_TREE_FILE);
-    if (!filename) {
-        goto out;
-    }
-    fdt = load_device_tree(filename, &fdt_size);
-    g_free(filename);
-    if (fdt == NULL) {
-        goto out;
-    }
+//     filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, BINARY_DEVICE_TREE_FILE);
+//     if (!filename) {
+//         goto out;
+//     }
+//     fdt = load_device_tree(filename, &fdt_size);
+//     g_free(filename);
+//     if (fdt == NULL) {
+//         goto out;
+//     }
 
-    /* Manipulate device tree in memory. */
+//     /* Manipulate device tree in memory. */
 
-    ret = qemu_fdt_setprop(fdt, "/memory", "reg", mem_reg_property,
-                           sizeof(mem_reg_property));
-    if (ret < 0)
-        fprintf(stderr, "couldn't set /memory/reg\n");
+//     ret = qemu_fdt_setprop(fdt, "/memory", "reg", mem_reg_property,
+//                            sizeof(mem_reg_property));
+//     if (ret < 0)
+//         fprintf(stderr, "couldn't set /memory/reg\n");
 
-    ret = qemu_fdt_setprop_cell(fdt, "/chosen", "linux,initrd-start",
-                                initrd_base);
-    if (ret < 0)
-        fprintf(stderr, "couldn't set /chosen/linux,initrd-start\n");
+//     ret = qemu_fdt_setprop_cell(fdt, "/chosen", "linux,initrd-start",
+//                                 initrd_base);
+//     if (ret < 0)
+//         fprintf(stderr, "couldn't set /chosen/linux,initrd-start\n");
 
-    ret = qemu_fdt_setprop_cell(fdt, "/chosen", "linux,initrd-end",
-                                (initrd_base + initrd_size));
-    if (ret < 0)
-        fprintf(stderr, "couldn't set /chosen/linux,initrd-end\n");
+//     ret = qemu_fdt_setprop_cell(fdt, "/chosen", "linux,initrd-end",
+//                                 (initrd_base + initrd_size));
+//     if (ret < 0)
+//         fprintf(stderr, "couldn't set /chosen/linux,initrd-end\n");
 
-    ret = qemu_fdt_setprop_string(fdt, "/chosen", "bootargs",
-                                  kernel_cmdline);
-    if (ret < 0)
-        fprintf(stderr, "couldn't set /chosen/bootargs\n");
+//     ret = qemu_fdt_setprop_string(fdt, "/chosen", "bootargs",
+//                                   kernel_cmdline);
+//     if (ret < 0)
+//         fprintf(stderr, "couldn't set /chosen/bootargs\n");
 
-    /* Copy data from the host device tree into the guest. Since the guest can
-     * directly access the timebase without host involvement, we must expose
-     * the correct frequencies. */
-    if (kvm_enabled()) {
-        tb_freq = kvmppc_get_tbfreq();
-        clock_freq = kvmppc_get_clockfreq();
-    }
+//     /* Copy data from the host device tree into the guest. Since the guest can
+//      * directly access the timebase without host involvement, we must expose
+//      * the correct frequencies. */
+//     if (kvm_enabled()) {
+//         tb_freq = kvmppc_get_tbfreq();
+//         clock_freq = kvmppc_get_clockfreq();
+//     }
 
-    qemu_fdt_setprop_cell(fdt, "/cpus/cpu@0", "clock-frequency",
-                          clock_freq);
-    qemu_fdt_setprop_cell(fdt, "/cpus/cpu@0", "timebase-frequency",
-                          tb_freq);
+//     qemu_fdt_setprop_cell(fdt, "/cpus/cpu@0", "clock-frequency",
+//                           clock_freq);
+//     qemu_fdt_setprop_cell(fdt, "/cpus/cpu@0", "timebase-frequency",
+//                           tb_freq);
 
-    rom_add_blob_fixed(BINARY_DEVICE_TREE_FILE, fdt, fdt_size, addr);
-    g_free(fdt);
-    return 0;
+//     rom_add_blob_fixed(BINARY_DEVICE_TREE_FILE, fdt, fdt_size, addr);
+//     g_free(fdt);
+//     return 0;
 
-out:
+// out:
 
-    return ret;
-}
+//     return ret;
+// }
 
 /* Create reset TLB entries for BookE, spanning the 32bit addr space.  */
 static void mmubooke_create_initial_mapping(CPUPPCState *env,
@@ -160,27 +160,27 @@ static void bamboo_init(MachineState *machine)
 {
     ram_addr_t ram_size = machine->ram_size;
     const char *kernel_filename = machine->kernel_filename;
-    const char *kernel_cmdline = machine->kernel_cmdline;
-    const char *initrd_filename = machine->initrd_filename;
-    unsigned int pci_irq_nrs[4] = { 28, 27, 26, 25 };
-    MemoryRegion *address_space_mem = get_system_memory();
-    MemoryRegion *isa = g_new(MemoryRegion, 1);
+    // const char *kernel_cmdline = machine->kernel_cmdline;
+    // const char *initrd_filename = machine->initrd_filename;
+    // unsigned int pci_irq_nrs[4] = { 28, 27, 26, 25 };
+    // MemoryRegion *address_space_mem = get_system_memory();
+    // MemoryRegion *isa = g_new(MemoryRegion, 1);
     MemoryRegion *ram_memories
         = g_malloc(PPC440EP_SDRAM_NR_BANKS * sizeof(*ram_memories));
     hwaddr ram_bases[PPC440EP_SDRAM_NR_BANKS];
     hwaddr ram_sizes[PPC440EP_SDRAM_NR_BANKS];
     qemu_irq *pic;
     qemu_irq *irqs;
-    PCIBus *pcibus;
+    // PCIBus *pcibus;
     PowerPCCPU *cpu;
     CPUPPCState *env;
     uint64_t elf_entry;
     uint64_t elf_lowaddr;
     hwaddr loadaddr = 0;
-    target_long initrd_size = 0;
-    DeviceState *dev;
+    // target_long initrd_size = 0;
+    // DeviceState *dev;
     int success;
-    int i;
+    // int i;
 
     /* Setup CPU. */
     if (machine->cpu_model == NULL) {
@@ -215,40 +215,40 @@ static void bamboo_init(MachineState *machine)
                       ram_bases, ram_sizes, 1);
 
     /* PCI */
-    dev = sysbus_create_varargs(TYPE_PPC4xx_PCI_HOST_BRIDGE,
-                                PPC440EP_PCI_CONFIG,
-                                pic[pci_irq_nrs[0]], pic[pci_irq_nrs[1]],
-                                pic[pci_irq_nrs[2]], pic[pci_irq_nrs[3]],
-                                NULL);
-    pcibus = (PCIBus *)qdev_get_child_bus(dev, "pci.0");
-    if (!pcibus) {
-        fprintf(stderr, "couldn't create PCI controller!\n");
-        exit(1);
-    }
+    // dev = sysbus_create_varargs(TYPE_PPC4xx_PCI_HOST_BRIDGE,
+    //                             PPC440EP_PCI_CONFIG,
+    //                             pic[pci_irq_nrs[0]], pic[pci_irq_nrs[1]],
+    //                             pic[pci_irq_nrs[2]], pic[pci_irq_nrs[3]],
+    //                             NULL);
+    // pcibus = (PCIBus *)qdev_get_child_bus(dev, "pci.0");
+    // if (!pcibus) {
+    //     fprintf(stderr, "couldn't create PCI controller!\n");
+    //     exit(1);
+    // }
 
-    memory_region_init_alias(isa, NULL, "isa_mmio",
-                             get_system_io(), 0, PPC440EP_PCI_IOLEN);
-    memory_region_add_subregion(get_system_memory(), PPC440EP_PCI_IO, isa);
+    // memory_region_init_alias(isa, NULL, "isa_mmio",
+    //                          get_system_io(), 0, PPC440EP_PCI_IOLEN);
+    // memory_region_add_subregion(get_system_memory(), PPC440EP_PCI_IO, isa);
 
-    if (serial_hds[0] != NULL) {
-        serial_mm_init(address_space_mem, 0xef600300, 0, pic[0],
-                       PPC_SERIAL_MM_BAUDBASE, serial_hds[0],
-                       DEVICE_BIG_ENDIAN);
-    }
-    if (serial_hds[1] != NULL) {
-        serial_mm_init(address_space_mem, 0xef600400, 0, pic[1],
-                       PPC_SERIAL_MM_BAUDBASE, serial_hds[1],
-                       DEVICE_BIG_ENDIAN);
-    }
+    // if (serial_hds[0] != NULL) {
+    //     serial_mm_init(address_space_mem, 0xef600300, 0, pic[0],
+    //                    PPC_SERIAL_MM_BAUDBASE, serial_hds[0],
+    //                    DEVICE_BIG_ENDIAN);
+    // }
+    // if (serial_hds[1] != NULL) {
+    //     serial_mm_init(address_space_mem, 0xef600400, 0, pic[1],
+    //                    PPC_SERIAL_MM_BAUDBASE, serial_hds[1],
+    //                    DEVICE_BIG_ENDIAN);
+    // }
 
-    if (pcibus) {
-        /* Register network interfaces. */
-        for (i = 0; i < nb_nics; i++) {
-            /* There are no PCI NICs on the Bamboo board, but there are
-             * PCI slots, so we can pick whatever default model we want. */
-            pci_nic_init_nofail(&nd_table[i], pcibus, "e1000", NULL);
-        }
-    }
+    // if (pcibus) {
+    //     /* Register network interfaces. */
+    //     for (i = 0; i < nb_nics; i++) {
+    //         /* There are no PCI NICs on the Bamboo board, but there are
+    //          * PCI slots, so we can pick whatever default model we want. */
+    //         pci_nic_init_nofail(&nd_table[i], pcibus, "e1000", NULL);
+    //     }
+    // }
 
     /* Load kernel. */
     if (kernel_filename) {
@@ -269,26 +269,26 @@ static void bamboo_init(MachineState *machine)
         }
     }
 
-    /* Load initrd. */
-    if (initrd_filename) {
-        initrd_size = load_image_targphys(initrd_filename, RAMDISK_ADDR,
-                                          ram_size - RAMDISK_ADDR);
+    // /* Load initrd. */
+    // if (initrd_filename) {
+    //     initrd_size = load_image_targphys(initrd_filename, RAMDISK_ADDR,
+    //                                       ram_size - RAMDISK_ADDR);
 
-        if (initrd_size < 0) {
-            fprintf(stderr, "qemu: could not load ram disk '%s' at %x\n",
-                    initrd_filename, RAMDISK_ADDR);
-            exit(1);
-        }
-    }
+    //     if (initrd_size < 0) {
+    //         fprintf(stderr, "qemu: could not load ram disk '%s' at %x\n",
+    //                 initrd_filename, RAMDISK_ADDR);
+    //         exit(1);
+    //     }
+    // }
 
-    /* If we're loading a kernel directly, we must load the device tree too. */
-    if (kernel_filename) {
-        if (bamboo_load_device_tree(FDT_ADDR, ram_size, RAMDISK_ADDR,
-                                    initrd_size, kernel_cmdline) < 0) {
-            fprintf(stderr, "couldn't load device tree\n");
-            exit(1);
-        }
-    }
+    // /* If we're loading a kernel directly, we must load the device tree too. */
+    // if (kernel_filename) {
+    //     if (bamboo_load_device_tree(FDT_ADDR, ram_size, RAMDISK_ADDR,
+    //                                 initrd_size, kernel_cmdline) < 0) {
+    //         fprintf(stderr, "couldn't load device tree\n");
+    //         exit(1);
+    //     }
+    // }
 }
 
 static void bamboo_machine_init(MachineClass *mc)
