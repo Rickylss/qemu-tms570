@@ -233,22 +233,28 @@ static void sci_write(void *opaque, hwaddr offset,
                 s->scigcr1 = value;
                 s->flag = 0x0;
                 s->flag |= SCIFLR_TX_RDY | SCIFLR_TX_EMPTY;
+                sci_update(s);
             }
             break;
         case 0x0C:
             s->intreg |= value;
+            sci_update(s);
             break;
         case 0x10:
             s->intreg &= ~value;
+            sci_update(s);
             break;
         case 0x14:
             s->intlevel |= value;
+            sci_update(s);
             break;
         case 0x18:
             s->intlevel &= ~value;
+            sci_update(s);            
             break;
         case 0x1C:
             s->flag = value & ~(s->intreg & s->flag);
+            sci_update(s);
             break;
         case 0x28:
             s->format = value;
@@ -264,6 +270,7 @@ static void sci_write(void *opaque, hwaddr offset,
             if (s->chr && sci_transmit(s) && (s->scigcr1 & 0x80))
                 qemu_chr_fe_write(s->chr, &ch, 1);
             s->flag |= SCIFLR_TX_EMPTY;
+            sci_update(s);
             break;
         case 0x90:
             s->ioerr = value;
@@ -273,20 +280,14 @@ static void sci_write(void *opaque, hwaddr offset,
                       "tms570_sci_read: Bad offset %x\n", (int)offset);
             break;
     }
-    sci_update(s);
 }
 
 static int sci_can_receive(void *opaque)
 {
     SCIState *s = (SCIState *)opaque;
 
-    if (s->scigcr1 & RXENA) { //RXENA
-        if ((s->flag & SCIFLR_RX_RDY) == 0) { // RX_RDY not pending
-            s->flag |= SCIFLR_RX_RDY; 
-        }
-    }
+    return ((s->flag & SCIFLR_RX_RDY) && (s->scigcr1 & RXENA));
 
-    return (s->flag & SCIFLR_RX_RDY);
 }
 
 static void sci_receive(void *opaque, const uint8_t *buf, int size)

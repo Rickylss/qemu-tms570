@@ -61,11 +61,11 @@ static void vim_update(VimState *s)
             s->first_fiq_channel = channel;
             s->first_fiq_isr = PHANTOM_VECTOR + (0x4 * (channel + 1));
             qemu_irq_raise(s->fiq);
-            s->is_pending[i] &= ~first_bit;
+            s->is_pending[i] &= ~(1 << first_bit);
             break;
         }
     }
-    if ((fiq[0] & fiq[1] & fiq[2]) == 0) {
+    if ((fiq[0] | fiq[1] | fiq[2]) == 0) {
         s->first_fiq_channel = 0x00;
         s->first_fiq_isr = PHANTOM_VECTOR;
         qemu_irq_lower(s->fiq);
@@ -80,11 +80,11 @@ static void vim_update(VimState *s)
             s->first_irq_channel = channel;
             s->first_irq_isr = PHANTOM_VECTOR + (0x4 * (channel + 1));
             qemu_irq_raise(s->irq);
-            s->is_pending[i] &= ~first_bit;
+            s->is_pending[i] &= ~(1 << first_bit);
             break;
         }
     }
-    if ((irq[0] & irq[1] & irq[2]) == 0) {
+    if ((irq[0] | irq[1] | irq[2]) == 0) {
         s->first_irq_channel = 0x00;
         s->first_irq_isr = PHANTOM_VECTOR;
         qemu_irq_lower(s->irq);
