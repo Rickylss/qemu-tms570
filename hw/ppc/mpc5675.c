@@ -51,17 +51,33 @@
 #else
 #define PPC_ELF_MACHINE     EM_PPC
 #endif
+
+struct boot_info
+{
+    uint32_t dt_base;
+    uint32_t dt_size;
+    uint32_t entry;
+};
 static void ppc_5675_reset(void *opaque)
 {
     PowerPCCPU *cpu = opaque;
 
     cpu_reset(CPU(cpu));
+
+    // CPUState *cs = CPU(cpu);
+    CPUPPCState *env = &cpu->env;
+    struct boot_info *bi = env->load_info;
+
+    fprintf(stderr,"bios entry:%x\n",bi->entry);
+    env->nip = bi->entry;
 }
 
 static void ppc_5675board_init(MachineState *machine)
 {
+    uint64_t loadaddr;
+    hwaddr bios_entry = 0;
     ram_addr_t ram_size = machine->ram_size;
-    const char *kernel_filename = machine->kernel_filename;
+    // const char *kernel_filename = machine->kernel_filename;
     // const char *kernel_cmdline = machine->kernel_cmdline;
     // const char *initrd_filename = machine->initrd_filename;
     // const char *boot_device = machine->boot_order;
@@ -75,7 +91,7 @@ static void ppc_5675board_init(MachineState *machine)
     // linux_boot = (kernel_filename != NULL);
 
     /* init CPUs */
-    if (machine->cpu_model == NULL)
+    // if (machine->cpu_model == NULL)
         machine->cpu_model = "e200";
     int i;
     for (i = 0; i < smp_cpus; i++) {
@@ -99,14 +115,6 @@ static void ppc_5675board_init(MachineState *machine)
     /* allocate RAM */
     memory_region_allocate_system_memory(ram, NULL, "ppc_5675.ram", ram_size);
     memory_region_add_subregion(sysmem, 0, ram);
-    if(!!kernel_filename){
-       uint32_t kernel_base = KERNEL_LOAD_ADDR;
-       long kernel_size = load_image_targphys(kernel_filename,kernel_base,ram_size - kernel_base);
-       if(kernel_size < 0){
-           error_report("could not load kernel '%s'",kernel_filename);
-           exit(1);
-       }
-    }
     int bios_size = -1;
     MemoryRegion *bios = g_new(MemoryRegion, 1);
     memory_region_init_ram(bios, NULL, "bios", BIOS_SIZE,
@@ -137,10 +145,11 @@ static void ppc_5675board_init(MachineState *machine)
         char* filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
         if (filename) {
           
-            bios_size = load_elf(filename, NULL, NULL, NULL,
-                                     NULL, NULL, 1, PPC_ELF_MACHINE, 0, 0);
+            bios_size = load_elf(filename, NULL, NULL, &bios_entry,
+                                      &loadaddr, NULL, 1, PPC_ELF_MACHINE, 0, 0);
             
             if (bios_size < 0) {
+                fprintf(stderr,"mpc5675     145\n");
                 bios_size = get_image_size(filename);
                 if (bios_size > 0 && bios_size <= BIOS_SIZE) {
                     hwaddr bios_addr;
@@ -157,6 +166,11 @@ static void ppc_5675board_init(MachineState *machine)
         }
         g_free(filename);
     }
+    struct boot_info *boot_info;
+    boot_info = g_malloc0(sizeof(struct boot_info));
+    env->load_info = boot_info;
+    boot_info = env->load_info;
+    boot_info->entry = bios_entry;
 }
 static void ppc5675board_machine_init(MachineClass *mc)
 {
