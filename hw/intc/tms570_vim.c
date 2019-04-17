@@ -66,6 +66,8 @@ static void vim_update(VimState *s)
         }
     }
     if ((fiq[0] & fiq[1] & fiq[2]) == 0) {
+        s->first_fiq_channel = 0x00;
+        s->first_fiq_isr = PHANTOM_VECTOR;
         qemu_irq_lower(s->fiq);
     }
 
@@ -83,6 +85,8 @@ static void vim_update(VimState *s)
         }
     }
     if ((irq[0] & irq[1] & irq[2]) == 0) {
+        s->first_irq_channel = 0x00;
+        s->first_irq_isr = PHANTOM_VECTOR;
         qemu_irq_lower(s->irq);
     }
 
@@ -107,10 +111,10 @@ static void vim_set_irq(void *opaque, int irq, int level)
             {
                 int channel = (4 * i + (3 - j)) & 0xff;
                 int index = channel / 32;
-                int bit = (channel % 32) - 1;
+                int bit = (channel % 32);
                 if (level == 0)
                 {
-                    s->is_pending[index] |= 0u << bit;
+                    s->is_pending[index] &= 0u << bit;
                 } else
                 {
                     s->is_pending[index] |= 1u << bit;
@@ -126,6 +130,7 @@ static uint64_t vim_read(void *opaque, hwaddr offset,
                         unsigned size)
 {
     VimState *s = (VimState *)opaque;
+    uint32_t tmp;
 
     if (offset >= 0x10 && offset < 0x20){ /* FIRQPR */
         return s->fiq_or_irq[(offset - 0x10) >> 2];
@@ -149,17 +154,24 @@ static uint64_t vim_read(void *opaque, hwaddr offset,
     switch (offset)
     {
         case 0x00: /* IRQINDEX */
-            return s->first_irq_channel;
+            tmp = s->first_irq_channel;
+            vim_update(s);
+            return tmp;
         case 0x04: /* FIQINDEX */
-            return s->first_fiq_channel;
+            tmp = s->first_fiq_channel;
+            vim_update(s);
+            return tmp;
         case 0x70: /* IRQVECREG */
-            return s->first_irq_isr;
+            tmp = s->first_irq_isr;
+            vim_update(s);
+            return tmp;
         case 0x74: /* FIQVECREG */
-            return s->first_fiq_isr;
+            tmp = s->first_fiq_isr;
+            vim_update(s);
+            return tmp;
         case 0x78: /* CAPEVT */
             return s->cap_to_rti;
         default:
-            vim_update(s);
             qemu_log_mask(LOG_GUEST_ERROR,
                       "vim_read: Bad offset %x\n", (int)offset);
             return 0;
