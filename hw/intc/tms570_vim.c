@@ -183,7 +183,8 @@ static void vim_write(void *opaque, hwaddr offset,
         }
     }
     if (offset >= 0x20 && offset < 0x30){ /* INTREQ */
-        /* This is a readonly register for user */
+        index = (offset - 0x20) >> 2;
+        s->is_pending[index] &= ~val;
     }
     if (offset >= 0x30 && offset < 0x40){ /* REQENASET */
         s->is_enabled[(offset - 0x30) >> 2] |= val;
