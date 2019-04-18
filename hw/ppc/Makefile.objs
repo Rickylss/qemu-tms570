@@ -26,3 +26,4 @@ obj-$(CONFIG_XILINX) += virtex_ml507.o
 obj-$(CONFIG_PPC755) += ppc755.o
 obj-$(CONFIG_MPC5675) += mpc5675.o
 obj-$(CONFIG_MYE500) += mye500.o
+obj-$(CONFIG_MYBAMBOO) += mybamboo.o
