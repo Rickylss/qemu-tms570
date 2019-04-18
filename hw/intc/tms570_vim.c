@@ -75,7 +75,7 @@ static void vim_update(VimState *s)
     {
         irq[i] = s->is_pending[i] & s->is_enabled[i] & ~s->fiq_or_irq[i];
         if (irq[i]) {
-            uint32_t first_bit = fiq[i] & (~(fiq[i]-1));
+            uint32_t first_bit = irq[i] & (~(irq[i]-1));
             uint8_t channel = (32 * i) + first_bit / 2;
             s->first_irq_channel = channel;
             s->first_irq_isr = PHANTOM_VECTOR + (0x4 * (channel + 1));

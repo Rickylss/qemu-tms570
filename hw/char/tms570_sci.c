@@ -129,20 +129,26 @@ static uint64_t sci_read(void *opaque, hwaddr offset,
         switch (s->vecoffset[index]) {
             case 1: //Wakeup
                 s->flag &= ~(s->intreg & s->flag & SCIFLR_WAKEUP);
+                break;
             case 3: //PE
                 s->flag &= ~(s->intreg & s->flag & SCIFLR_PE);
+                break;
             case 6: //FE
                 s->flag &= ~(s->intreg & s->flag & SCIFLR_FE);
+                break;
             case 7: //BRKDT
                 s->flag &= ~(s->intreg & s->flag & SCIFLR_BRKDT);
+                break;
             case 9: //OE
                 s->flag &= ~(s->intreg & s->flag & SCIFLR_OE);
+                break;
             case 11: //Receive
             case 12: //Transmit
             default: //Reserved
-                sci_update(s);
-                return s->vecoffset[index];
+                break;
         }
+        sci_update(s);
+        return s->vecoffset[index];
     }
     
     switch (offset)

@@ -117,7 +117,7 @@ static void tms570_init(MachineState *machine,
     /* VIMRAM at address 0xfff82000 */
     memory_region_allocate_system_memory(vimram, NULL, "tms570ls31x.vimram",
                                          4 * 1024);    
-    memory_region_add_subregion(sysmem, 0x80000000, vimram);
+    memory_region_add_subregion(sysmem, 0xfff82000, vimram);
     /* VIM at address 0xfffffe00 */
     dev = sysbus_create_varargs("tms570-vim", 0xfffffe00,
                                 qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_IRQ),
