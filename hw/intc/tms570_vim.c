@@ -11,7 +11,9 @@
 #include "qemu/log.h"
 
 #define TYPE_VIM "tms570-vim"
+#define TYPE_VIM_RAM "tms570-vimram"
 #define VIM(obj) OBJECT_CHECK(VimState, (obj), TYPE_VIM)
+#define VIMRAM(obj) OBJECT_CHECK(VimRamState, (obj), TYPE_VIM_RAM)
 #define PHANTOM_VECTOR 0xfff82000
 #define VIM_MAX_IRQ 95  
 
@@ -43,6 +45,16 @@ typedef struct VimState {
     qemu_irq rti0;
     qemu_irq rti1;
 } VimState;
+
+typedef struct VimRamState {
+    SysBusDevice parent_obj;
+
+    MemoryRegion vimram;
+
+    uint32_t isrFunc[94];
+
+} VimRamState;
+
 
 /* Update interrupts */
 static void vim_update(VimState *s)
@@ -247,10 +259,34 @@ static void vim_write(void *opaque, hwaddr offset,
     vim_update(s);
 }
 
+static uint64_t vimram_read(void *opaque, hwaddr offset, 
+                        unsigned size)
+{
+    VimRamState *s = (VimRamState *)opaque;
+    int index = offset >> 2;
+
+    return s->isrFunc[index];
+}
+
+static void vimram_write(void *opaque, hwaddr offset,
+                        uint64_t val, unsigned size)
+{
+    VimRamState *s = (VimState *)opaque;
+    int index = offset >> 2;
+
+    s->isrFunc[index] = val;
+}
+
 /* read/write operations */
 static const MemoryRegionOps vim_ops = {
     .read = vim_read,
     .write = vim_write,
+    .endianness = DEVICE_NATIVE_ENDIAN,
+};
+
+static const MemoryRegionOps vimram_ops = {
+    .read = vimram_read,
+    .write = vimram_write,
     .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
@@ -309,6 +345,16 @@ static void vim_init(Object *obj)
     sysbus_init_irq(sbd, &s->rti1); // TODO add rti CAPEVT support
 }
 
+static void vim_ram_init(Object *obj)
+{
+    VimRamState *s = VIMRAM(obj);
+    SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
+
+    /* init i/o opreations for the memory_region */
+    memory_region_init_io(&s->vimram, obj, &vimram_ops, s, "tms570-vimram", 0x180);
+    sysbus_init_mmio(sbd, &s->vimram);
+}
+
 static const VMStateDescription vmstate_vim = {
     .name = "tms570-vim",
     .version_id = 1,
@@ -347,9 +393,17 @@ static const TypeInfo vim_info = {
     .class_init    = vim_class_init,
 };
 
+static const TypeInfo vimram_info = {
+    .name          = TYPE_VIM_RAM,
+    .parent        = TYPE_SYS_BUS_DEVICE,
+    .instance_size = sizeof(VimRamState),
+    .instance_init = vim_ram_init,
+};
+
 static void vim_register_types(void)
 {
     type_register_static(&vim_info);
+    type_register_static(&vimram_info);
 }
 
 type_init(vim_register_types)

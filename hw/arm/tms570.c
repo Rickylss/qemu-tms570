@@ -57,7 +57,6 @@ static void tms570_init(MachineState *machine,
     MemoryRegion *ram = g_new(MemoryRegion, 1);
     MemoryRegion *async_ram = g_new(MemoryRegion, 1);
     MemoryRegion *sdram = g_new(MemoryRegion, 1);
-    MemoryRegion *vimram = g_new(MemoryRegion, 1);
     uint64_t flash_size = 3 * 1024 * 1024;
     uint64_t ram_size = 256 * 1024;
     uint64_t async_ram_size = 16 * 3 * 1024 * 1024;
@@ -114,10 +113,7 @@ static void tms570_init(MachineState *machine,
 
     machine->ram_size = flash_size + ram_size;
 
-    /* VIMRAM at address 0xfff82000 */
-    memory_region_allocate_system_memory(vimram, NULL, "tms570ls31x.vimram",
-                                         4 * 1024);    
-    memory_region_add_subregion(sysmem, 0xfff82000, vimram);
+    sysbus_create_simple("tms570-vimram", 0xfff82000, NULL); /* VIMRAM */
     /* VIM at address 0xfffffe00 */
     dev = sysbus_create_varargs("tms570-vim", 0xfffffe00,
                                 qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_IRQ),

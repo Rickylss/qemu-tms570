@@ -292,7 +292,13 @@ static int sci_can_receive(void *opaque)
 {
     SCIState *s = (SCIState *)opaque;
 
-    return ((s->flag & SCIFLR_RX_RDY) && (s->scigcr1 & RXENA));
+    if (s->scigcr1 & RXENA) { //RXENA
+        if ((s->flag & SCIFLR_RX_RDY) == 0) { // RX_RDY not pending
+            s->flag |= SCIFLR_RX_RDY; 
+        }
+    }
+
+    return (s->flag & SCIFLR_RX_RDY);
 
 }
 
