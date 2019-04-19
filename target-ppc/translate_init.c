@@ -4666,6 +4666,7 @@ static void init_proc_e200 (CPUPPCState *env)
     env->nb_ways = 1;
     env->id_tlbs = 0;
     env->tlb_type = TLB_EMB;
+
 #endif
     init_excp_e200(env, 0xFFFF0000UL);
     env->dcache_line_size = 32;
@@ -4712,7 +4713,7 @@ POWERPC_FAMILY(e200)(ObjectClass *oc, void *data)
                     (1ull << MSR_FE1) |
                     (1ull << MSR_IR) |
                     (1ull << MSR_DR);
-    pcc->mmu_model = POWERPC_MMU_BOOKE206;
+    pcc->mmu_model = POWERPC_MMU_BOOKE;
     pcc->excp_model = POWERPC_EXCP_BOOKE;
     pcc->bus_model = PPC_FLAGS_INPUT_BookE;
     pcc->bfd_mach = bfd_mach_ppc_860;

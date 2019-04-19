@@ -61,7 +61,7 @@ struct boot_info
     uint32_t entry;
 };
 
-/* Create -kernel TLB entries for BookE.  */
+// /* Create -kernel TLB entries for BookE.  */
 // static hwaddr booke206_page_size_to_tlb(uint64_t size)
 // {
 //     return 63 - clz64(size >> 10);
@@ -135,7 +135,7 @@ static void ppc_5675_reset(void *opaque)
 
     fprintf(stderr,"bios entry:%x\n",bi->entry);
     env->nip = bi->entry;
-    env->gpr[1] = (16<<20) - 8;
+    // env->gpr[1] = (16<<20) - 8;
     mmubooke_create_initial_mapping(env,0,0);
 }
 
@@ -186,11 +186,15 @@ static void ppc_5675board_init(MachineState *machine)
             // qemu_register_reset(ppce500_cpu_reset_sec, cpu);
         }
     }
-
+    if (PPC_INPUT(env) != PPC_FLAGS_INPUT_BookE) {
+        error_report("Only BOOKE bus is supported on E200 machine");
+        exit(1);
+    }
     env = firstenv;
 
     /* Fixup Memory size on a alignment boundary */
     ram_size &= ~(RAM_SIZES_ALIGN - 1);
+    fprintf(stderr,"ram_size:%lx\n",ram_size);
     machine->ram_size = ram_size;
 
     /* Register Memory */
@@ -240,11 +244,6 @@ static void ppc_5675board_init(MachineState *machine)
         }
     }
     g_free(filename);
-
-    /* Reserve space for dtb */
-    // dt_base = (loadaddr + bios_size + DTC_LOAD_PAD) & ~DTC_PAD_MASK;
-
-    // assert(dt_size < DTB_MAX_SIZE);
 
     boot_info = env->load_info;
     boot_info->entry = bios_entry;
