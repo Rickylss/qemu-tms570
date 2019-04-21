@@ -55,9 +55,15 @@ typedef struct VimRamState {
 
 } VimRamState;
 
+static void vim_update(VimState *s)
+{
+    qemu_set_irq(s->irq, s->first_irq_channel);
+
+    qemu_set_irq(s->fiq, s->first_fiq_channel);
+}
 
 /* Update interrupts */
-static void vim_update(VimState *s)
+static void vim_update_vectors(VimState *s)
 {
     uint32_t irq[3];
     uint32_t fiq[3];
@@ -71,16 +77,14 @@ static void vim_update(VimState *s)
             uint32_t first_bit = fiq[i] & (~(fiq[i]-1));
             uint8_t channel = (32 * i) + first_bit / 2;
             s->first_fiq_channel = channel;
-            s->first_fiq_isr = PHANTOM_VECTOR + (0x4 * (channel + 1));
-            qemu_irq_raise(s->fiq);
+            s->first_fiq_isr = vimram_read(0x4 * (channel + 1));
             s->is_pending[i] &= ~(1 << first_bit);
             break;
         }
     }
-    if ((fiq[0] | fiq[1] | fiq[2]) == 0) {
+    if ((fiq[0] && fiq[1] && fiq[2]) == 0) {
         s->first_fiq_channel = 0x00;
         s->first_fiq_isr = PHANTOM_VECTOR;
-        qemu_irq_lower(s->fiq);
     }
 
     for(i = 0; i < 3; i++)
@@ -90,17 +94,17 @@ static void vim_update(VimState *s)
             uint32_t first_bit = irq[i] & (~(irq[i]-1));
             uint8_t channel = (32 * i) + first_bit / 2;
             s->first_irq_channel = channel;
-            s->first_irq_isr = PHANTOM_VECTOR + (0x4 * (channel + 1));
-            qemu_irq_raise(s->irq);
+            s->first_irq_isr = vimram_read(0x4 * (channel + 1));
             s->is_pending[i] &= ~(1 << first_bit);
             break;
         }
     }
-    if ((irq[0] | irq[1] | irq[2]) == 0) {
+    if ((irq[0] && irq[1] && irq[2]) == 0) {
         s->first_irq_channel = 0x00;
         s->first_irq_isr = PHANTOM_VECTOR;
-        qemu_irq_lower(s->irq);
     }
+
+    vim_update(s);
 
 }
 
@@ -135,7 +139,7 @@ static void vim_set_irq(void *opaque, int irq, int level)
         }
     }
 
-    vim_update(s);
+    vim_update_vectors(s);
 }
 
 static uint64_t vim_read(void *opaque, hwaddr offset, 
@@ -167,19 +171,19 @@ static uint64_t vim_read(void *opaque, hwaddr offset,
     {
         case 0x00: /* IRQINDEX */
             tmp = s->first_irq_channel;
-            vim_update(s);
+            vim_update_vectors(s);
             return tmp;
         case 0x04: /* FIQINDEX */
             tmp = s->first_fiq_channel;
-            vim_update(s);
+            vim_update_vectors(s);
             return tmp;
         case 0x70: /* IRQVECREG */
             tmp = s->first_irq_isr;
-            vim_update(s);
+            vim_update_vectors(s);
             return tmp;
         case 0x74: /* FIQVECREG */
             tmp = s->first_fiq_isr;
-            vim_update(s);
+            vim_update_vectors(s);
             return tmp;
         case 0x78: /* CAPEVT */
             return s->cap_to_rti;
@@ -256,7 +260,7 @@ static void vim_write(void *opaque, hwaddr offset,
             break;
     }
 
-    vim_update(s);
+    vim_update_vectors(s);
 }
 
 static uint64_t vimram_read(void *opaque, hwaddr offset, 
