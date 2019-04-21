@@ -14,7 +14,6 @@
 #define TYPE_VIM_RAM "tms570-vimram"
 #define VIM(obj) OBJECT_CHECK(VimState, (obj), TYPE_VIM)
 #define VIMRAM(obj) OBJECT_CHECK(VimRamState, (obj), TYPE_VIM_RAM)
-#define PHANTOM_VECTOR 0xfff82000
 #define VIM_MAX_IRQ 95  
 
 typedef struct VimRamState {
@@ -88,7 +87,7 @@ static void vim_update_vectors(VimState *s)
     }
     if ((fiq[0] || fiq[1] || fiq[2]) == 0) {
         s->first_fiq_channel = 0x00;
-        s->first_fiq_isr = PHANTOM_VECTOR;
+        s->first_fiq_isr = s->vimram->isrFunc[0];
     }
 
     for(i = 0; i < 3; i++)
@@ -105,7 +104,7 @@ static void vim_update_vectors(VimState *s)
     }
     if ((irq[0] || irq[1] || irq[2]) == 0) {
         s->first_irq_channel = 0x00;
-        s->first_irq_isr = PHANTOM_VECTOR;
+        s->first_irq_isr = s->vimram->isrFunc[0];
     }
 
     vim_update(s);
@@ -308,8 +307,8 @@ static void vim_reset(DeviceState *d)
 
     s->first_irq_channel = 0x00;
     s->first_fiq_channel = 0x00;
-    s->first_irq_isr = PHANTOM_VECTOR; /* Phantom Vector */
-    s->first_fiq_isr = PHANTOM_VECTOR;
+    s->first_irq_isr = s->vimram->isrFunc[0]; /* Phantom Vector */
+    s->first_fiq_isr = s->vimram->isrFunc[0];
     
     for (i = 0; i < 3; i++){
         if(i == 0){
