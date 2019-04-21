@@ -113,7 +113,7 @@ static void tms570_init(MachineState *machine,
 
     machine->ram_size = flash_size + ram_size;
 
-    sysbus_create_simple("tms570-vimram", 0xfff82000, NULL); /* VIMRAM */
+    //sysbus_create_simple("tms570-vimram", 0xfff82000, NULL); /* VIMRAM */
     /* VIM at address 0xfffffe00 */
     dev = sysbus_create_varargs("tms570-vim", 0xfffffe00,
                                 qdev_get_gpio_in(DEVICE(cpu), ARM_CPU_IRQ),

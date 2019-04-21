@@ -17,6 +17,17 @@
 #define PHANTOM_VECTOR 0xfff82000
 #define VIM_MAX_IRQ 95  
 
+typedef struct VimRamState {
+    SysBusDevice parent_obj;
+
+    MemoryRegion vimram;
+
+    uint32_t isrFunc[94];
+
+} VimRamState;
+
+VimRamState *vimram;
+
 typedef struct VimState {
     /*< private >*/
     SysBusDevice parent_obj;
@@ -40,20 +51,13 @@ typedef struct VimState {
     uint32_t cap_to_rti; /* Capture Event Register */
     uint32_t int_map_channel[24]; /* VIM Interrupt Control Register */
 
+    VimRamState *vimram;
+
     qemu_irq irq;
     qemu_irq fiq;
     qemu_irq rti0;
     qemu_irq rti1;
 } VimState;
-
-typedef struct VimRamState {
-    SysBusDevice parent_obj;
-
-    MemoryRegion vimram;
-
-    uint32_t isrFunc[94];
-
-} VimRamState;
 
 static void vim_update(VimState *s)
 {
@@ -77,12 +81,12 @@ static void vim_update_vectors(VimState *s)
             uint32_t first_bit = fiq[i] & (~(fiq[i]-1));
             uint8_t channel = (32 * i) + first_bit / 2;
             s->first_fiq_channel = channel;
-            s->first_fiq_isr = vimram_read(0x4 * (channel + 1));
+            s->first_fiq_isr = s->vimram->isrFunc[channel + 1];
             s->is_pending[i] &= ~(1 << first_bit);
             break;
         }
     }
-    if ((fiq[0] && fiq[1] && fiq[2]) == 0) {
+    if ((fiq[0] || fiq[1] || fiq[2]) == 0) {
         s->first_fiq_channel = 0x00;
         s->first_fiq_isr = PHANTOM_VECTOR;
     }
@@ -94,12 +98,12 @@ static void vim_update_vectors(VimState *s)
             uint32_t first_bit = irq[i] & (~(irq[i]-1));
             uint8_t channel = (32 * i) + first_bit / 2;
             s->first_irq_channel = channel;
-            s->first_irq_isr = vimram_read(0x4 * (channel + 1));
+            s->first_irq_isr = s->vimram->isrFunc[channel + 1];
             s->is_pending[i] &= ~(1 << first_bit);
             break;
         }
     }
-    if ((irq[0] && irq[1] && irq[2]) == 0) {
+    if ((irq[0] || irq[1] || irq[2]) == 0) {
         s->first_irq_channel = 0x00;
         s->first_irq_isr = PHANTOM_VECTOR;
     }
@@ -275,7 +279,7 @@ static uint64_t vimram_read(void *opaque, hwaddr offset,
 static void vimram_write(void *opaque, hwaddr offset,
                         uint64_t val, unsigned size)
 {
-    VimRamState *s = (VimState *)opaque;
+    VimRamState *s = (VimRamState *)opaque;
     int index = offset >> 2;
 
     s->isrFunc[index] = val;
@@ -347,6 +351,10 @@ static void vim_init(Object *obj)
     sysbus_init_irq(sbd, &s->fiq);
     sysbus_init_irq(sbd, &s->rti0);
     sysbus_init_irq(sbd, &s->rti1); // TODO add rti CAPEVT support
+
+    sysbus_create_simple("tms570-vimram", 0xfff82000, NULL); /* VIMRAM */
+
+    s->vimram = vimram;
 }
 
 static void vim_ram_init(Object *obj)
@@ -357,6 +365,8 @@ static void vim_ram_init(Object *obj)
     /* init i/o opreations for the memory_region */
     memory_region_init_io(&s->vimram, obj, &vimram_ops, s, "tms570-vimram", 0x180);
     sysbus_init_mmio(sbd, &s->vimram);
+
+    vimram = s;
 }
 
 static const VMStateDescription vmstate_vim = {
