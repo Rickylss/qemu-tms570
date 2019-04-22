@@ -34,6 +34,8 @@ typedef struct VimState {
 
     MemoryRegion mem;
 
+    uint32_t is_read;
+
     /* TODO: Parity-related Registers */
 
     /* Control Registers */
@@ -81,7 +83,11 @@ static void vim_update_vectors(VimState *s)
             uint8_t channel = (32 * i) + first_bit / 2;
             s->first_fiq_channel = channel;
             s->first_fiq_isr = s->vimram->isrFunc[channel + 1];
-            s->is_pending[i] &= ~(1 << first_bit);
+            if (s->is_read)
+            {
+                s->is_pending[i] &= ~first_bit;
+                s->is_read = 0;
+            }
             break;
         }
     }
@@ -98,7 +104,11 @@ static void vim_update_vectors(VimState *s)
             uint8_t channel = (32 * i) + first_bit / 2;
             s->first_irq_channel = channel;
             s->first_irq_isr = s->vimram->isrFunc[channel + 1];
-            s->is_pending[i] &= ~(1 << first_bit);
+            if (s->is_read)
+            {
+                s->is_pending[i] &= ~first_bit;
+                s->is_read = 0;
+            }
             break;
         }
     }
@@ -174,18 +184,22 @@ static uint64_t vim_read(void *opaque, hwaddr offset,
     {
         case 0x00: /* IRQINDEX */
             tmp = s->first_irq_channel;
+            s->is_read = 1;
             vim_update_vectors(s);
             return tmp;
         case 0x04: /* FIQINDEX */
             tmp = s->first_fiq_channel;
+            s->is_read = 1;
             vim_update_vectors(s);
             return tmp;
         case 0x70: /* IRQVECREG */
             tmp = s->first_irq_isr;
+            s->is_read = 1;
             vim_update_vectors(s);
             return tmp;
         case 0x74: /* FIQVECREG */
             tmp = s->first_fiq_isr;
+            s->is_read = 1;
             vim_update_vectors(s);
             return tmp;
         case 0x78: /* CAPEVT */
