@@ -131,12 +131,12 @@ static void tms570_init(MachineState *machine,
     // sysbus_create_varargs("tms570-n2het", 0xfff7b800, pic[10], pic[24], NULL);
     // sysbus_create_varargs("tms570-n2het", 0xfff7b900, pic[63], pic[73], NULL);
 
-    /* RTI at address 0xfffffd00 
+    /* RTI at address 0xfffffc00 
      * RTI compare interrupt 0~3  pic 2~5
      * RTI overflow interrupt 0~1 pic 6~7
      * RTI timebase interrupt pic 8
      */
-    dev = sysbus_create_varargs("tms570-rti", 0xfffffd00,
+    dev = sysbus_create_varargs("tms570-rti", 0xfffffc00,
                             pic[2], pic[3], pic[4], pic[5], pic[6], pic[7], pic[8], NULL);
     for (n = 0; n < 2; n++)
     {
@@ -163,7 +163,7 @@ static void tms570_init(MachineState *machine,
     /* 0xfff7e400 SCI(LIN) */
     /* 0xfffff000 DMA */
     /* 0xffffe100 system register2 */
-    /* 0xfffffd00 RTI */
+    /* 0xfffffc00 RTI */
     /* 0xfffffe00 VIM */
     /* 0xffffff00 system register1 */
 

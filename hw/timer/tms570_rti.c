@@ -25,6 +25,7 @@ typedef struct RTIState {
     ptimer_state *timer[3];
 
     uint32_t overflow_flag[2];
+    uint32_t ptimer_running[2];
 
     uint32_t global_ctrl;               /* RTIGCTRL */
     uint32_t timebase_ctrl;             /* RTITBCTRL */
@@ -98,12 +99,15 @@ static void rti_update_compare(RTIState *s, int counter_num)
 {
     for (size_t i = 0; i < 4; i++)
     {
-        if ((s->compare_ctrl << (i*4)) == counter_num)
+        if (((s->compare_ctrl >> (i*4)) & 0x1) == counter_num)
         {
             if (s->free_running_counter[counter_num] == s->compare[i])
-            { //compare int
+            { //compare interrupt
                 s->compare[i] += s->update_compare[i]; 
                 s->int_flag |= 0x1 << i;
+            } else
+            {
+                s->int_flag &= ~(0x1 << i);
             }
         }
     }
@@ -142,7 +146,7 @@ static uint64_t rti_read(void *opaque, hwaddr offset,
             return s->compare_ctrl;
 
         case 0x10: /* RTIFRC0 */
-            s->up_counter[0] = ptimer_get_count(s->timer[0]);
+            s->up_counter[0] = s->compare_up_counter[0] - ptimer_get_count(s->timer[0]);
             return s->free_running_counter[0];
         case 0x14: /* RTIUC0 */
             return s->up_counter[0];
@@ -154,7 +158,7 @@ static uint64_t rti_read(void *opaque, hwaddr offset,
             return s->capture_up_counter[0];
 
         case 0x30: /* RTIFRC1 */
-            s->up_counter[1] = ptimer_get_count(s->timer[1]);
+            s->up_counter[1] = s->compare_up_counter[1] - ptimer_get_count(s->timer[1]);
             return s->free_running_counter[1];
         case 0x34: /* RTIUC1 */
             return s->up_counter[1];
@@ -230,9 +234,11 @@ static void rti_write(void *opaque, hwaddr offset,
                 if ((s->global_ctrl & bit) == bit)
                 { //enable
                     ptimer_run(s->timer[i], 0);
+                    s->ptimer_running[i] = 1;
                 } else
                 { //disable
                     ptimer_stop(s->timer[i]);
+                    s->ptimer_running[i] = 0;
                 }
             }
             // if ((s->global_ctrl & 0x8000) != 0x8000)
@@ -257,12 +263,14 @@ static void rti_write(void *opaque, hwaddr offset,
             break;
         case 0x14: /* RTIUC0 */
             s->up_counter[0] = val;
-            ptimer_set_count(s->timer[0], s->up_counter[0]);
+            ptimer_set_count(s->timer[0], s->compare_up_counter[0] - s->up_counter[0]);
             break; 
         case 0x18: /* RTICPUC0 */
             if ((s->timebase_ctrl & 0x1) == 0x0)
             {
                 s->compare_up_counter[0] = val;
+                ptimer_set_limit(s->timer[0], s->compare_up_counter[0], 1);
+                //ptimer_set_count(s->timer[0], s->compare_up_counter[0] - s->up_counter[0]);
             }
             break;
         case 0x20: /* RTICAFRC0 RO*/
@@ -276,10 +284,11 @@ static void rti_write(void *opaque, hwaddr offset,
             break;
         case 0x34: /* RTIUC1 */
             s->up_counter[1] = val;
-            ptimer_set_count(s->timer[1], s->up_counter[1]);
+            ptimer_set_count(s->timer[1], s->compare_up_counter[1] - s->up_counter[1]);
             break; 
         case 0x38: /* RTICPUC1 */
             s->compare_up_counter[1] = val;
+            ptimer_set_limit(s->timer[1], s->compare_up_counter[1], 1);
             break;
         case 0x40: /* RTICAFRC1 RO*/
             break;
@@ -290,6 +299,7 @@ static void rti_write(void *opaque, hwaddr offset,
             if ((s->timebase_ctrl & 0x1) == 0x0)
             {
                 s->timebase_low = val;
+                ptimer_set_count(s->timer[1], s->compare_up_counter[1] - s->up_counter[1]);
             }
             break;
         case 0x74: /* RTITBHCOMP */
@@ -444,7 +454,7 @@ static void rti_timer_tick(void *opaque)
 
     for (size_t i = 0; i < 2; i++)
     {
-        if (s->up_counter[i] == s->compare_up_counter[i])
+        if (s->ptimer_running[i])
         {
             s->up_counter[i] = 0;
             s->free_running_counter[i]++;
@@ -457,6 +467,7 @@ static void rti_timer_tick(void *opaque)
             s->int_flag |= 0x1 << (17 + i); // overflow int
             s->overflow_flag[i] = 0;
             rti_update_irq(s);
+            s->int_flag &= ~(0x1 << (17 + i));
         }
     }
 }
@@ -492,6 +503,12 @@ static void rti_init(Object *obj)
     bh[2] = qemu_bh_new(rti_watchdog_tick, s);
     s->timer[2] = ptimer_init(bh[2]);
 
+    /* HF LPO run at 10MHz.  */
+    for (size_t i = 0; i < 2; i++)
+    {
+        ptimer_set_freq(s->timer[i], 10000000);
+    }
+    
     /* CAP event rti0 & rti1 */
     qdev_init_gpio_in(dev, rti_get_cap, 2);
 
