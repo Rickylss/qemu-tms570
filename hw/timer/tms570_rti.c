@@ -105,14 +105,10 @@ static void rti_update_compare(RTIState *s, int counter_num)
             { //compare interrupt
                 s->compare[i] += s->update_compare[i]; 
                 s->int_flag |= 0x1 << i;
-            } else
-            {
-                s->int_flag &= ~(0x1 << i);
-            }
+                rti_update_irq(s);
+            } 
         }
     }
-
-    rti_update_irq(s);
 }
 
 static uint64_t rti_read(void *opaque, hwaddr offset,
@@ -311,12 +307,15 @@ static void rti_write(void *opaque, hwaddr offset,
 
         case 0x80: /* RTISETINTENA && RTICLEARINTENA */
             s->int_ctrl |= val;
+            rti_update(s);
             break;
         case 0x84: 
             s->int_ctrl &= ~val;
+            rti_update(s);
             break;
         case 0x88: /* RTIINTFLAG */
             s->int_flag &= ~val;
+            rti_update(s);
             break;
 
         /*--------------------Digital Watchdog--------------------*/
@@ -382,8 +381,6 @@ static void rti_write(void *opaque, hwaddr offset,
                       "rti_write: Bad offset %x\n", (int)offset);
             break;
     }
-
-    rti_update(s);
 }
 
 static void rti_get_cap(void *opaque, int irq, int level)
@@ -467,7 +464,6 @@ static void rti_timer_tick(void *opaque)
             s->int_flag |= 0x1 << (17 + i); // overflow int
             s->overflow_flag[i] = 0;
             rti_update_irq(s);
-            s->int_flag &= ~(0x1 << (17 + i));
         }
     }
 }
