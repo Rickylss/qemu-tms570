@@ -221,7 +221,7 @@ static void vim_write(void *opaque, hwaddr offset,
     if (offset >= 0x10 && offset < 0x20){ /* FIRQPR */
         index = (offset - 0x10) >> 2;
         if (index == 0) {
-            s->fiq_or_irq[index] = val & 0x11 ; /* bit0 and bit1 must be 0x11 */
+            s->fiq_or_irq[index] = val | 0x3; /* bit0 and bit1 must be3 */
         } else
         {
             s->fiq_or_irq[index] = val;
@@ -236,7 +236,7 @@ static void vim_write(void *opaque, hwaddr offset,
     } else if (offset >= 0x40 && offset < 0x50) { /* REQENACLR */
         index = (offset - 0x40) >> 2;
         if (index == 0) {
-            s->is_enabled[index] &= (~val | 0x11);   /* bit0 and bit1 must be 0x11 */
+            s->is_enabled[index] &= (~val | 0x3);   /* bit0 and bit1 must be 0x3 */
         } else
         {
             s->is_enabled[index] &= ~val;
