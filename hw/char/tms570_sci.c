@@ -120,6 +120,7 @@ static uint64_t sci_read(void *opaque, hwaddr offset,
                            unsigned size)
 {
     SCIState *s = (SCIState *)opaque;
+    uint32_t buff;
 
     if (offset >= 0x3c && offset < 0x90) { //SCIPIO0~8
         return s->pio_control[(offset - 0x3c) >> 2];
@@ -170,14 +171,16 @@ static uint64_t sci_read(void *opaque, hwaddr offset,
         case 0x2c:
             return s->brs;
         case 0x34: //SCIRD RO
-            s->flag &= ~(s->flag & SCIFLR_RX_RDY);
+            s->flag &= ~SCIFLR_RX_RDY;
+            buff = s->buff;
+            s->buff = 0;
             sci_update(s);
             if (s->chr && (s->scigcr1 & 0x80)) {
                 qemu_chr_accept_input(s->chr);
             }
         case 0x30: //SCIED RO
         case 0x38: //SCITD RW
-            return s->buff;
+            return buff;
         case 0x90:
             return s->ioerr;
         default:
@@ -292,13 +295,7 @@ static int sci_can_receive(void *opaque)
 {
     SCIState *s = (SCIState *)opaque;
 
-    if (s->scigcr1 & RXENA) { //RXENA
-        if ((s->flag & SCIFLR_RX_RDY) == 0) { // RX_RDY not pending
-            s->flag |= SCIFLR_RX_RDY; 
-        }
-    }
-
-    return (s->flag & SCIFLR_RX_RDY);
+    return (s->scigcr1 & RXENA) && ~s->buff;
 
 }
 
@@ -308,6 +305,11 @@ static void sci_receive(void *opaque, const uint8_t *buf, int size)
 
     s->buff = *buf;
     sci_update(s);
+    s->flag &= ~SCIFLR_RX_RDY;
+    if (s->buff) {
+        s->flag |= SCIFLR_RX_RDY; 
+    }
+
 }
 
 static void sci_event(void *opaque, int event)
