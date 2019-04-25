@@ -16,7 +16,7 @@
 #define TSI107TIEMERNUM  4
 #define TSI107IRQNUM   (TSI107TIEMERNUM+5)   //4 timers and 5 irq
 #define TSI107ISRMAX  TSI107IRQNUM   //I don't know the value,so ....
-#define DEBUG_TSI107
+// #define DEBUG_TSI107
 #ifdef DEBUG_TSI107
 #define tsi107_debug(fmt, ...) fprintf(stderr, fmt, ## __VA_ARGS__)
 #else

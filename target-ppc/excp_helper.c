@@ -903,7 +903,7 @@ void helper_raise_exception_err(CPUPPCState *env, uint32_t exception,
 {
     CPUState *cs = CPU(ppc_env_get_cpu(env));
 
-#if 1
+#if 0
     printf("Raise exception %3x code : %d\n", exception, error_code);
 #endif
     cs->exception_index = exception;
