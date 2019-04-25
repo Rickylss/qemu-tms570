@@ -291,7 +291,7 @@ static void pc16552d_put_fifo(void *opaque, uint32_t value,uint8_t index)
     int slot;
     s->ulsr[index] |= 0x1u;
     if((s->uiir[index] & 0x80u) == 0x80u){   //fifo mode 
-        // fprintf(stderr,"pc16552d_put_fifo 0\n");
+        fprintf(stderr,"pc16552d_put_fifo 0\n");
         slot = s->read_pos[index] + s->read_count[index];
         if (slot >= 16)
             slot -= 16;
@@ -300,9 +300,9 @@ static void pc16552d_put_fifo(void *opaque, uint32_t value,uint8_t index)
         if((s->read_count[index] < s->read_trigger[index]) && s->mode[index]){
             s->udsr[index] |= 0x1u;
         }
-        // fprintf(stderr,"read_count:%x   read_trigger:%x\n",s->read_count[index],s->read_trigger[index]);
+        fprintf(stderr,"read_count:%x   read_trigger:%x\n",s->read_count[index],s->read_trigger[index]);
         if(s->read_count[index] >= s->read_trigger[index]){
-            // fprintf(stderr,"pc16552d_put_fifo 1\n");
+            fprintf(stderr,"pc16552d_put_fifo 1\n");
             s->udsr[index] &= 0xfeu;
             pc16552d_receive_trigger(s,index);
         }
@@ -311,6 +311,7 @@ static void pc16552d_put_fifo(void *opaque, uint32_t value,uint8_t index)
         }     
     }else{
         fprintf(stderr,"pc16552d_put_fifo 2\n");
+        s->udsr[index] &= ~(0x1u);
         s->read_fifo[index][0] = value;
         pc16552d_receive_trigger(s,index);
     }
@@ -341,7 +342,7 @@ static int pc16552d_can_receive_1(void *opaque){
 }
 
 inline static void pc16552d_receive_1(void *opaque, const uint8_t *buf, int size){
-    // fprintf(stderr,"pc16552d_receive_1\n");
+    fprintf(stderr,"pc16552d_receive_1\n");
     PC16552DState* s = opaque;
     s->timeout_count[0] = 0;
     pc16552d_put_fifo(s,*buf,0);
@@ -367,6 +368,7 @@ static int pc16552d_can_receive_2(void *opaque){
 }
 
 inline static void pc16552d_receive_2(void *opaque, const uint8_t *buf, int size){
+    fprintf(stderr,"pc16552d_receive_2\n");
     PC16552DState* s = opaque;
     s->timeout_count[1] = 0;
     pc16552d_put_fifo(s,*buf,1);
