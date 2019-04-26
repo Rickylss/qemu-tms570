@@ -133,7 +133,7 @@ static void ppc_5675_reset(void *opaque)
     CPUPPCState *env = &cpu->env;
     struct boot_info *bi = env->load_info;
 
-    fprintf(stderr,"bios entry:%x\n",bi->entry);
+    fprintf(stderr,"bios entry:%" PRIX32 "\n",bi->entry);
     env->nip = bi->entry;
     // env->gpr[1] = (16<<20) - 8;
     mmubooke_create_initial_mapping(env,0,0);
@@ -194,7 +194,7 @@ static void ppc_5675board_init(MachineState *machine)
 
     /* Fixup Memory size on a alignment boundary */
     ram_size &= ~(RAM_SIZES_ALIGN - 1);
-    fprintf(stderr,"ram_size:%lx\n",ram_size);
+    fprintf(stderr,"ram_size:%" PRIX64 "\n",ram_size);
     machine->ram_size = ram_size;
 
     /* Register Memory */
