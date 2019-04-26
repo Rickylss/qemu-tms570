@@ -774,7 +774,7 @@ static void tsi107config_addr_write(void *opaque, hwaddr offset, uint64_t val,un
             tsi107config_data_select(s,val1);
             break;
         default:
-            error_report("tsi107config addr write val:%lx   offset:%lx\n",val,offset);
+            error_report("tsi107config addr write val:%" PRIx64 "   offset:%" PRIx64 "\n",val,offset);
             break;
     }
 }
@@ -793,7 +793,7 @@ static uint64_t tsi107config_data_read(void* opaque,hwaddr offset,unsigned int s
             res = s->config.data;
             break;
         default:
-            error_report("tsi107config data offset:%lx\n",offset);
+            error_report("tsi107config data offset:%" PRIx64 "\n",offset);
             break;
     }
     return INTSWAP(res);

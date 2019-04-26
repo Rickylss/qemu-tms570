@@ -160,7 +160,7 @@ static uint64_t pc16552d_read(void *opaque, hwaddr offset,
             res = s->udsr[index];
             break;
         default:
-            error_report("read error offset:%lx\n",offset);
+            error_report("read error offset:%" PRIx64 "\n",offset);
             res = -1;
             break;
     }
