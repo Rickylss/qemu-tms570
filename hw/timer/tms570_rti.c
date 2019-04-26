@@ -38,7 +38,7 @@ typedef struct RTIState {
     uint32_t capture_free_counter[2];   /* RTICAFRC0~1 >>5 */
     uint32_t capture_up_counter[2];     /* RTICAUC0~1 >>5 */
 
-    uint32_t compare[4];                /* RTICOMP0~3 >>3*/
+    uint32_t compare[4];                /* RTICOMP0~3 >>3 */
     uint32_t update_compare[4];         /* RTIUDCP0~3 >>3 */
 
     uint32_t timebase_low;              /* RTITBLCOMP */
@@ -219,6 +219,14 @@ static void rti_write(void *opaque, hwaddr offset,
         
     }
 
+    /* Writes to Reserved registers may clear the pending RTI interrupt. */
+    if (offset >= 0xb0 && offset < 0xc0)
+    { /* RTICOMP0~3CLR */
+        uint64_t index = (offset - 0xb0) >> 2;
+
+        s->int_flag &= ~(0x1 << (index - 1));
+    }
+
     switch (offset)
     {
         case 0x00: /* RTIGCTRL */
@@ -374,6 +382,8 @@ static void rti_write(void *opaque, hwaddr offset,
             break;
         case 0xa8: /* RTIWWDSIZECTRL */
             s->dww_size_ctrl = val;
+            break;
+        case 0xac: /* RTIINTCLRENABLE */
             break;
 
         default:
