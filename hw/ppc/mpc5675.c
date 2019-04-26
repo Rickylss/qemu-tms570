@@ -194,7 +194,7 @@ static void ppc_5675board_init(MachineState *machine)
 
     /* Fixup Memory size on a alignment boundary */
     ram_size &= ~(RAM_SIZES_ALIGN - 1);
-    fprintf(stderr,"ram_size:%" PRIX64 "\n",ram_size);
+    fprintf(stderr,"ram_size:%" PRIX32 "\n",ram_size);
     machine->ram_size = ram_size;
 
     /* Register Memory */
