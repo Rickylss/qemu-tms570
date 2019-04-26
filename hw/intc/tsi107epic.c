@@ -297,7 +297,7 @@ static void tsi107epic_set_irq(void* opaque,int irq,int level){
             if((irq < 4)&&!TSI107EPIC_GTVPR_M(s->gtvpr[irq])){
                 tsi107_set_bit(&s->pending,irq);
                 tsi107_set_bit(s->gtvpr+irq,30);// activity bit
-            }else if((irq>4 && irq<9)&&!TSI107EPIC_IVPR_M(s->ivpr[irq-4])){
+            }else if((irq >= 4 && irq<9)&&!TSI107EPIC_IVPR_M(s->ivpr[irq-4])){
                 tsi107_set_bit(&s->pending,irq);
                 tsi107_set_bit(s->ivpr+(irq-4),30);
             }else{
@@ -446,6 +446,7 @@ static void tsi107_write_vpr(tsi107EPICState* s,int8_t index,uint64_t value){
         s->gtvpr[index] = value;
     }else{
         //ivpr
+        // fprintf(stderr,"index:%d    value:%lx\n",index,value);
         if(is_tsi107_change_vp(s->ivpr[index-4],value) && tsi107_get_bit(s->ivpr[index-4],30)){
             error_report("The VECTOR and PRIORITY values in ivpr should not be changed while the A bit is set.\n");
             return;

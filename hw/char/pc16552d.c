@@ -124,7 +124,7 @@ static uint64_t pc16552d_read(void *opaque, hwaddr offset,
     PC16552DState* s = opaque;
     uint32_t index = 0;
     uint64_t res;
-    if((offset>>2 &0xfu) == 6){
+    if((offset>>8 &0xfu) == 6){
         index = 1;      //usart1
     }
     switch (offset & 0xffu)
@@ -252,7 +252,8 @@ static void pc16552d_write(void *opaque, hwaddr offset, uint64_t val,unsigned in
 {
     PC16552DState*  s = opaque;
     uint8_t index = 0;
-    if((offset >> 2 &0xf) == 6){
+    // fprintf(stderr,"offset:%lx\n",offset);
+    if((offset >> 8 &0xf) == 6){
         index = 1;
     }
     switch(offset & 0xffu){
@@ -291,7 +292,6 @@ static void pc16552d_put_fifo(void *opaque, uint32_t value,uint8_t index)
     int slot;
     s->ulsr[index] |= 0x1u;
     if((s->uiir[index] & 0x80u) == 0x80u){   //fifo mode 
-        fprintf(stderr,"pc16552d_put_fifo 0\n");
         slot = s->read_pos[index] + s->read_count[index];
         if (slot >= 16)
             slot -= 16;
@@ -300,9 +300,9 @@ static void pc16552d_put_fifo(void *opaque, uint32_t value,uint8_t index)
         if((s->read_count[index] < s->read_trigger[index]) && s->mode[index]){
             s->udsr[index] |= 0x1u;
         }
-        fprintf(stderr,"read_count:%x   read_trigger:%x\n",s->read_count[index],s->read_trigger[index]);
+        // fprintf(stderr,"read_count:%x   read_trigger:%x\n",s->read_count[index],s->read_trigger[index]);
         if(s->read_count[index] >= s->read_trigger[index]){
-            fprintf(stderr,"pc16552d_put_fifo 1\n");
+            // fprintf(stderr,"pc16552d_put_fifo 1\n");
             s->udsr[index] &= 0xfeu;
             pc16552d_receive_trigger(s,index);
         }
@@ -310,7 +310,7 @@ static void pc16552d_put_fifo(void *opaque, uint32_t value,uint8_t index)
             s->udsr[index] &= ~0x1u;  //RXRDY  置0
         }     
     }else{
-        fprintf(stderr,"pc16552d_put_fifo 2\n");
+        // fprintf(stderr,"pc16552d_put_fifo 2\n");
         s->udsr[index] &= ~(0x1u);
         s->read_fifo[index][0] = value;
         pc16552d_receive_trigger(s,index);
@@ -320,7 +320,7 @@ static void pc16552d_put_fifo(void *opaque, uint32_t value,uint8_t index)
 inline static void pc16552d_timeout_trigger(PC16552DState* s,uint8_t index)
 {
     // if((s->uier[index] & 0x4u) == 0x4u){
-        pc16552d_debug("pc16552d timeout trigger\n");
+        // pc16552d_debug("pc16552d timeout trigger\n");
         s->timeout_count[index] = 0;
         s->uiir[index] = ((s->uiir[index]&0xf0u)|0xcu);
         qemu_set_irq(s->irq[index],1);
@@ -342,14 +342,14 @@ static int pc16552d_can_receive_1(void *opaque){
 }
 
 inline static void pc16552d_receive_1(void *opaque, const uint8_t *buf, int size){
-    fprintf(stderr,"pc16552d_receive_1\n");
+    // fprintf(stderr,"pc16552d_receive_1\n");
     PC16552DState* s = opaque;
     s->timeout_count[0] = 0;
     pc16552d_put_fifo(s,*buf,0);
 }
 inline static void pc16552d_event_1(void *opaque, int event){
     if (event == CHR_EVENT_BREAK){
-        fprintf(stderr,"pc16552d chr_event_1\n");
+        // fprintf(stderr,"pc16552d chr_event_1\n");
         pc16552d_put_fifo(opaque, 0x400,0);
     }
 }
@@ -361,14 +361,14 @@ static int pc16552d_can_receive_2(void *opaque){
                  (s->timeout_count[1]++ > PC16552D_TIMEOUT) && s->read_count[1]>0 && 
                     s->read_count[1]<s->read_trigger[1])
     {
-        pc16552d_debug("pc16552d can receive test\n");
+        // pc16552d_debug("pc16552d can receive test\n");
         pc16552d_timeout_trigger(s,0);
     }
     return 1;
 }
 
 inline static void pc16552d_receive_2(void *opaque, const uint8_t *buf, int size){
-    fprintf(stderr,"pc16552d_receive_2\n");
+    // fprintf(stderr,"pc16552d_receive_2\n");
     PC16552DState* s = opaque;
     s->timeout_count[1] = 0;
     pc16552d_put_fifo(s,*buf,1);
