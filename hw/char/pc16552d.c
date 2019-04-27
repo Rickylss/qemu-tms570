@@ -13,7 +13,7 @@
 #include "sysemu/char.h"
 #include "qemu/log.h"
 #include "qemu/error-report.h"
-#define DEBUG_PC16552D
+// #define DEBUG_PC16552D
 #ifdef DEBUG_PC16552D
 #define pc16552d_debug(fmt, ...) fprintf(stderr, fmt, ## __VA_ARGS__)
 #else
@@ -25,7 +25,7 @@
 
 #define PC16552D_FIFO_COUNT 16
 
-#define PC16552D_TIMEOUT    0x100u      //last four character times
+#define PC16552D_TIMEOUT    0x800u      //last four character times
 #define UART_INPUT_CLK      50000000
 typedef struct PC16552DState {
     SysBusDevice parent_obj;
@@ -82,6 +82,8 @@ static uint64_t pc16552d_read_0(PC16552DState* s,uint32_t index){
             res = s->read_fifo[index][0];
             s->ulsr[index] &= 0xfeu;
         }
+        pc16552d_debug("read rbr reset uiir\n");
+        s->uiir[index] = ((s->uiir[index] & 0xf0u) | 0xf1u); 
     }else{
         res = s->udlb[index];
     }
@@ -100,6 +102,7 @@ inline static uint64_t pc16552d_read_1(PC16552DState* s,uint32_t index){
 }
 inline static uint64_t pc16552d_read_uiir(PC16552DState* s,uint8_t index)
 {   
+    pc16552d_debug("uiir[%d]:%" PRIx8 " \n",index,s->uiir[index]);
     return s->uiir[index];
 }
 
@@ -282,7 +285,7 @@ static void pc16552d_write(void *opaque, hwaddr offset, uint64_t val,unsigned in
 inline static void pc16552d_receive_trigger(PC16552DState* s,uint8_t index)
 {   
     if(s->uier[index]&0x1u){
-        s->uiir[index] = ((s->uiir[index]&0xf0u) | 0x4u);
+        s->uiir[index] = ((s->uiir[index] & 0xf0u) | 0xf4u);
         qemu_set_irq(s->irq[index],1);
     }
 }
@@ -320,9 +323,9 @@ static void pc16552d_put_fifo(void *opaque, uint32_t value,uint8_t index)
 inline static void pc16552d_timeout_trigger(PC16552DState* s,uint8_t index)
 {
     // if((s->uier[index] & 0x4u) == 0x4u){
-        // pc16552d_debug("pc16552d timeout trigger\n");
+        pc16552d_debug("pc16552d timeout trigger\n");
         s->timeout_count[index] = 0;
-        s->uiir[index] = ((s->uiir[index]&0xf0u)|0xcu);
+        s->uiir[index] = ((s->uiir[index] & 0xf0u) | 0xfcu);
         qemu_set_irq(s->irq[index],1);
     // }
 }
@@ -342,7 +345,6 @@ static int pc16552d_can_receive_1(void *opaque){
 }
 
 inline static void pc16552d_receive_1(void *opaque, const uint8_t *buf, int size){
-    // fprintf(stderr,"pc16552d_receive_1\n");
     PC16552DState* s = opaque;
     s->timeout_count[0] = 0;
     pc16552d_put_fifo(s,*buf,0);
