@@ -9,6 +9,7 @@
 #include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "qemu/log.h"
+#include <math.h>
 
 #define TYPE_VIM "tms570-vim"
 #define TYPE_VIM_RAM "tms570-vimram"
@@ -80,7 +81,7 @@ static void vim_update_vectors(VimState *s)
         fiq[i] = s->is_pending[i] & s->is_enabled[i] & s->fiq_or_irq[i];
         if (fiq[i]) {
             uint32_t first_bit = fiq[i] & (~(fiq[i]-1));
-            uint8_t channel = (32 * i) + first_bit / 2;
+            uint8_t channel = (32 * i) + log(first_bit)/log(2);
             s->first_fiq_channel = channel;
             s->first_fiq_isr = s->vimram->isrFunc[channel + 1];
             if (s->is_read)
@@ -101,7 +102,7 @@ static void vim_update_vectors(VimState *s)
         irq[i] = s->is_pending[i] & s->is_enabled[i] & ~s->fiq_or_irq[i];
         if (irq[i]) {
             uint32_t first_bit = irq[i] & (~(irq[i]-1));
-            uint8_t channel = (32 * i) + first_bit / 2;
+            uint8_t channel = (32 * i) + log(first_bit)/log(2);
             s->first_irq_channel = channel;
             s->first_irq_isr = s->vimram->isrFunc[channel + 1];
             if (s->is_read)
@@ -143,7 +144,7 @@ static void vim_set_irq(void *opaque, int irq, int level)
                 int bit = (channel % 32);
                 if (level == 0)
                 {
-                    s->is_pending[index] &= ~(1u << bit);
+                    //s->is_pending[index] &= ~(1u << bit);
                 } else
                 {
                     s->is_pending[index] |= 1u << bit;

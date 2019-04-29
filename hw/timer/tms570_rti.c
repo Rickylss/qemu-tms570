@@ -105,8 +105,11 @@ static void rti_update_compare(RTIState *s, int counter_num)
             { //compare interrupt
                 s->compare[i] += s->update_compare[i]; 
                 s->int_flag |= 0x1 << i;
-                rti_update_irq(s);
-            } 
+            } else
+            {
+                s->int_flag &= ~(0x1 << i);
+            }
+            rti_update_irq(s);
         }
     }
 }
@@ -468,7 +471,7 @@ static void rti_timer_tick(void *opaque)
             s->overflow_flag[i] = 1;
             rti_update_compare(s, i);
         }
-        
+
         if ((s->free_running_counter[i] == 0) && s->overflow_flag[i])
         {  /* overflow */
             s->int_flag |= 0x1 << (17 + i); // overflow int
