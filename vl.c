@@ -25,7 +25,7 @@
 #include "qemu-version.h"
 #include "qemu/cutils.h"
 #include "qemu/help_option.h"
-
+#include <stdlib.h>
 #ifdef CONFIG_SECCOMP
 #include "sysemu/seccomp.h"
 #endif
@@ -123,6 +123,7 @@ int main(int argc, char **argv)
 #include "qapi/qmp/qerror.h"
 #include "sysemu/iothread.h"
 
+#include <stdlib.h>
 #define MAX_VIRTIO_CONSOLES 1
 #define MAX_SCLP_CONSOLES 1
 
@@ -210,6 +211,7 @@ static int default_sdcard = 1;
 static int default_vga = 1;
 static int default_net = 1;
 
+uint32_t apptestaddr;
 static struct {
     const char *driver;
     int *flag;
@@ -3983,6 +3985,12 @@ int main(int argc, char **argv, char **envp)
                     error_report("open %s: %s", optarg, strerror(errno));
                     exit(1);
                 }
+                break;
+            case QEMU_OPTION_apptestaddr:
+                // char* r = optarg;
+                fprintf(stderr,"optarg:%s\n",optarg);
+                apptestaddr = strtol(optarg,(char**)&optarg,16);
+                fprintf(stderr,"apptestaddr:%d  \n",apptestaddr);
                 break;
             default:
                 os_parse_cmd_args(popt->index, optarg);

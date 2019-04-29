@@ -51,6 +51,8 @@
 #else
 #define PPC_ELF_MACHINE     EM_PPC
 #endif
+
+extern uint32_t apptestaddr;
 static void ppc_755_reset(void *opaque)
 {
     PowerPCCPU *cpu = opaque;
@@ -100,8 +102,9 @@ static void ppc_755board_init(MachineState *machine)
     memory_region_allocate_system_memory(ram, NULL, "ppc_prep.ram", ram_size);
     memory_region_add_subregion(sysmem, 0, ram);
     if(!!kernel_filename){
-       uint32_t kernel_base = KERNEL_LOAD_ADDR;
+       uint32_t kernel_base = apptestaddr;
        long kernel_size = load_image_targphys(kernel_filename,kernel_base,ram_size - kernel_base);
+       fprintf(stderr,"load kernel flag\n");
        if(kernel_size < 0){
            error_report("could not load kernel '%s'",kernel_filename);
            exit(1);
