@@ -670,6 +670,21 @@ static uint64_t tsi107EPIC_read(void *opaque, hwaddr offset,unsigned int size)
         case IVPR4:
             res = s->ivpr[4];
             break;
+        case IDR0:
+            res = s->idr[0];
+            break;
+        case IDR1:
+            res = s->idr[1];
+            break;
+        case IDR2:
+            res = s->idr[2];
+            break;
+        case IDR3:
+            res = s->idr[3];
+            break;
+        case IDR4:
+            res = s->idr[4];
+            break;
         case PCTPR:
             res = s->pctpr;
             break;
