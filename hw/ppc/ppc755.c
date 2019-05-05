@@ -52,6 +52,15 @@
 #define PPC_ELF_MACHINE     EM_PPC
 #endif
 
+#define APPNAMELENGTH   30
+#define APPMAXCOUNT    30
+typedef struct {
+    char appname[APPNAMELENGTH];
+    uint32_t appaddr;
+}APPinfo;
+
+extern APPinfo app[APPMAXCOUNT];
+extern int appcount;
 extern uint32_t apptestaddr;
 static void ppc_755_reset(void *opaque)
 {
@@ -63,19 +72,12 @@ static void ppc_755_reset(void *opaque)
 static void ppc_755board_init(MachineState *machine)
 {
     ram_addr_t ram_size = machine->ram_size;
-    const char *kernel_filename = machine->kernel_filename;
-    // const char *kernel_cmdline = machine->kernel_cmdline;
-    // const char *initrd_filename = machine->initrd_filename;
-    // const char *boot_device = machine->boot_order;
     MemoryRegion *sysmem = get_system_memory();
     PowerPCCPU *cpu = NULL;
     CPUPPCState *env = NULL;
     qemu_irq pic[5];
     MemoryRegion *ram = g_new(MemoryRegion, 1);
     DeviceState *dev;
-    // int linux_boot;
-    // linux_boot = (kernel_filename != NULL);
-
     /* init CPUs */
     if (machine->cpu_model == NULL)
         machine->cpu_model = "755";
@@ -87,30 +89,12 @@ static void ppc_755board_init(MachineState *machine)
             exit(1);
         }
         env = &cpu->env;
-
-        // if (env->flags & POWERPC_FLAG_RTC_CLK) {
-        //     /* POWER / PowerPC 601 RTC clock frequency is 7.8125 MHz */
-        //     cpu_ppc_tb_init(env, 7812500UL);     
-        // } else {
-        //     /* Set time-base frequency to 100 Mhz */
-        //     cpu_ppc_tb_init(env, 100UL * 1000UL * 1000UL);
-        // }
         qemu_register_reset(ppc_755_reset, cpu);
     }
 
     /* allocate RAM */
     memory_region_allocate_system_memory(ram, NULL, "ppc_prep.ram", ram_size);
     memory_region_add_subregion(sysmem, 0, ram);
-    if(!!kernel_filename){
-       uint32_t kernel_base = apptestaddr;
-       long kernel_size = load_image_targphys(kernel_filename,kernel_base,ram_size - kernel_base);
-       fprintf(stderr,"load kernel flag\n");
-       if(kernel_size < 0){
-           error_report("could not load kernel '%s'",kernel_filename);
-           exit(1);
-       }
-    }
-    int bios_size = -1;
     MemoryRegion *bios = g_new(MemoryRegion, 1);
     memory_region_init_ram(bios, NULL, "bios", BIOS_SIZE,
                            &error_fatal);
@@ -128,37 +112,13 @@ static void ppc_755board_init(MachineState *machine)
     }
     // pl011_create(0xa0000000,pic[0],serial_hds[0]);
     pc16552d_create(0xa0000000,pic[4],pic[0],serial_hds[0],serial_hds[1]);
-    if (bios_name == NULL) {
-        if (machine->kernel_filename) {
-            bios_name = machine->kernel_filename;
-        } else {
-            error_report("could not load bios ");
-            exit(1);
+    int appindex=0;
+    int appsize=-1;
+    for(;appindex<appcount;appindex++){
+        appsize = load_image_targphys(app[appindex].appname,app[appindex].appaddr,ram_size-app[appindex].appaddr);
+        if(appsize < 0){
+            hw_error("qemu:could not load app:%s\n",app[appcount].appname);
         }
-    }
-    if (bios_name) {
-        char* filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
-        if (filename) {
-          
-            bios_size = load_elf(filename, NULL, NULL, NULL,
-                                     NULL, NULL, 1, PPC_ELF_MACHINE, 0, 0);
-            
-            if (bios_size < 0) {
-                bios_size = get_image_size(filename);
-                if (bios_size > 0 && bios_size <= BIOS_SIZE) {
-                    hwaddr bios_addr;
-                    bios_size = (bios_size + 0xfff) & ~0xfff;
-                    bios_addr = (uint32_t)(-BIOS_SIZE);
-                    bios_size = load_image_targphys(filename, bios_addr,
-                                                    bios_size);
-                }
-            }
-        }
-        if (bios_size < 0 || bios_size > BIOS_SIZE) {
-            /* FIXME should error_setg() */
-            hw_error("qemu: could not load bios image \n");
-        }
-        g_free(filename);
     }
 }
 static void ppc755board_machine_init(MachineClass *mc)

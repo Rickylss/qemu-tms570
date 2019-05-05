@@ -211,7 +211,33 @@ static int default_sdcard = 1;
 static int default_vga = 1;
 static int default_net = 1;
 
+#define APPNAMELENGTH   30
+#define APPMAXCOUNT    30
+typedef struct {
+    char appname[APPNAMELENGTH];
+    uint32_t appaddr;
+}APPinfo;
+
+APPinfo app[APPMAXCOUNT];
+int appcount=0;
 uint32_t apptestaddr;
+static void getappinfo(const char* val){
+    int temp=0;
+    char addrtemp[10];
+    memset(&app[appcount],0,sizeof(APPinfo));
+    while(*(val+temp) != ','){
+        app[appcount].appname[temp] = *(val+temp);
+        temp++;
+    }
+    temp++;
+    int tempindex=0;
+    while(*(val+temp)){
+        addrtemp[tempindex] = *(val+temp);
+        tempindex++;
+        temp++;
+    }
+    app[appcount].appaddr = strtol(addrtemp,(char**)&addrtemp,16);
+}
 static struct {
     const char *driver;
     int *flag;
@@ -3987,10 +4013,10 @@ int main(int argc, char **argv, char **envp)
                 }
                 break;
             case QEMU_OPTION_apptestaddr:
-                // char* r = optarg;
                 fprintf(stderr,"optarg:%s\n",optarg);
-                apptestaddr = strtol(optarg,(char**)&optarg,16);
-                fprintf(stderr,"apptestaddr:%d  \n",apptestaddr);
+                getappinfo(optarg);
+                fprintf(stderr,"app[%d].appname:%s\tappaddr:%x\n",appcount,app[appcount].appname,app[appcount].appaddr);
+                appcount++;
                 break;
             default:
                 os_parse_cmd_args(popt->index, optarg);
