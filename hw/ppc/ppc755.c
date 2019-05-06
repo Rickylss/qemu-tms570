@@ -45,7 +45,7 @@
 #include "hw/char/pc16552d.h"
 #define MAX_CPUS 1
 #define KERNEL_LOAD_ADDR 0x01000000
-#define BIOS_SIZE (1024 * 1024)
+#define BIOS_SIZE 0x7fffff      //8Mbyte
 #if defined (TARGET_PPC64)
 #define PPC_ELF_MACHINE     EM_PPC64
 #else
@@ -71,12 +71,12 @@ static void ppc_755_reset(void *opaque)
 
 static void ppc_755board_init(MachineState *machine)
 {
-    ram_addr_t ram_size = machine->ram_size;
+    int64_t ram_size = (int64_t)machine->ram_size;
     MemoryRegion *sysmem = get_system_memory();
     PowerPCCPU *cpu = NULL;
     CPUPPCState *env = NULL;
     qemu_irq pic[5];
-    MemoryRegion *ram = g_new(MemoryRegion, 1);
+    MemoryRegion *ram;
     DeviceState *dev;
     /* init CPUs */
     if (machine->cpu_model == NULL)
@@ -93,13 +93,27 @@ static void ppc_755board_init(MachineState *machine)
     }
 
     /* allocate RAM */
-    memory_region_allocate_system_memory(ram, NULL, "ppc_prep.ram", ram_size);
-    memory_region_add_subregion(sysmem, 0, ram);
+    fprintf(stderr,"ram_size:%lx\n",ram_size);
+    hwaddr offset = 0;
+    uint64_t temp=0;
+    char ram_name[20]={0};
+    int index = 0;
+    while(ram_size > 0){   
+        ram = g_new(MemoryRegion, 1);
+        temp = (!(ram_size%(128*M_BYTE)))?128*M_BYTE:ram_size%(128*M_BYTE);
+        fprintf(stderr,"offset:%lx   ram_size_temp:%lx\n",offset,temp);
+        sprintf(ram_name,"ppc_prep.ram.%d",index);
+        memory_region_allocate_system_memory(ram, NULL, (const char*)ram_name,temp);
+        memory_region_add_subregion(sysmem, offset, ram);
+        ram_size -= 128*M_BYTE;
+        offset += 128*M_BYTE;
+        index ++;
+    }
     MemoryRegion *bios = g_new(MemoryRegion, 1);
     memory_region_init_ram(bios, NULL, "bios", BIOS_SIZE,
                            &error_fatal);
     // memory_region_set_readonly(bios, true);
-    memory_region_add_subregion(get_system_memory(), (uint32_t)(-BIOS_SIZE),bios);
+    memory_region_add_subregion(get_system_memory(), 0xff800000,bios);
     
     if (PPC_INPUT(env) != PPC_FLAGS_INPUT_6xx) {
         error_report("Only 6xx bus is supported on ppc755 machine");
@@ -117,7 +131,7 @@ static void ppc_755board_init(MachineState *machine)
     for(;appindex<appcount;appindex++){
         appsize = load_image_targphys(app[appindex].appname,app[appindex].appaddr,ram_size-app[appindex].appaddr);
         if(appsize < 0){
-            hw_error("qemu:could not load app:%s\n",app[appcount].appname);
+            hw_error("qemu:could not load app:%s\n",app[appindex].appname);
         }
     }
 }
@@ -126,7 +140,7 @@ static void ppc755board_machine_init(MachineClass *mc)
     mc->desc = "PowerPC 755test platform";
     mc->init = ppc_755board_init;
     mc->max_cpus = 1;
-    mc->default_ram_size = 128 * M_BYTE;
+    mc->default_ram_size = 256 * M_BYTE;
     mc->default_boot_order = "cadc";
 }
 
