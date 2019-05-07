@@ -52,7 +52,7 @@
 #define PPC_ELF_MACHINE     EM_PPC
 #endif
 
-#define APPNAMELENGTH   30
+#define APPNAMELENGTH   100
 #define APPMAXCOUNT    30
 typedef struct {
     char appname[APPNAMELENGTH];
