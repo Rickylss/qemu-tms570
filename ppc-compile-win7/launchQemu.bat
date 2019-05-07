@@ -1,0 +1,1 @@
+C:\msys32\home\Tang\qemu\ppc-compile-win7\1\ppc-softmmu\qemu-system-ppc -M ppc755 -no-reboot -serial telnet:localhost:9000,server -serial telnet:localhost:9001,server -apptestaddr C:\msys32\home\Tang\misc\ppc755\mytest\bios.bin,0xfff00000   -apptestaddr  C:\msys32\home\Tang\misc\ppc755\Qemu755Test\os.bin,0x1000000 -s -S
