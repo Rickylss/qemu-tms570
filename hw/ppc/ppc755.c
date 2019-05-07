@@ -93,7 +93,6 @@ static void ppc_755board_init(MachineState *machine)
     }
 
     /* allocate RAM */
-    fprintf(stderr,"ram_size:%lx\n",ram_size);
     hwaddr offset = 0;
     uint64_t temp=0;
     char ram_name[20]={0};
@@ -101,7 +100,8 @@ static void ppc_755board_init(MachineState *machine)
     while(ram_size > 0){   
         ram = g_new(MemoryRegion, 1);
         temp = (!(ram_size%(128*M_BYTE)))?128*M_BYTE:ram_size%(128*M_BYTE);
-        fprintf(stderr,"offset:%lx   ram_size_temp:%lx\n",offset,temp);
+        // fprintf(stderr,"offset:%lx   ram_size_temp:%lx\n",offset,temp);
+        memset(ram_name,0,sizeof(ram_name));
         sprintf(ram_name,"ppc_prep.ram.%d",index);
         memory_region_allocate_system_memory(ram, NULL, (const char*)ram_name,temp);
         memory_region_add_subregion(sysmem, offset, ram);

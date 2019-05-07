@@ -223,7 +223,7 @@ int appcount=0;
 uint32_t apptestaddr;
 static void getappinfo(const char* val){
     int temp=0;
-    char addrtemp[10];
+    char addrtemp[10]={0};
     memset(&app[appcount],0,sizeof(APPinfo));
     while(*(val+temp) != ','){
         app[appcount].appname[temp] = *(val+temp);
@@ -4013,9 +4013,9 @@ int main(int argc, char **argv, char **envp)
                 }
                 break;
             case QEMU_OPTION_apptestaddr:
-                fprintf(stderr,"optarg:%s\n",optarg);
+                // fprintf(stderr,"optarg:%s\n",optarg);
                 getappinfo(optarg);
-                fprintf(stderr,"app[%d].appname:%s\tappaddr:%x\n",appcount,app[appcount].appname,app[appcount].appaddr);
+                // fprintf(stderr,"app[%d].appname:%s\tappaddr:%x\n",appcount,app[appcount].appname,app[appcount].appaddr);
                 appcount++;
                 break;
             default:
