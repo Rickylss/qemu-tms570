@@ -1,0 +1,4 @@
+build.sh 为编译脚本，请在cygwin 环境中使用'''source  build.sh  newpath'''命令，成功执行后，会在当前目录下新建newpath文件夹，生成的可执行文件qemu-system-ppc.exe 在 newpath/ppc-softmmu 路径下。
+
+
+launchQemu.bat 为启动qemu的脚本，请将脚本中的可执行文件路径替换为您环境中正确的路径，-apptest 后接bin文件路径（文件路径不能超过100个字符），并指定文件加载地址(加载地址为hex)，格式为-apptest binpath,0xxxx。若加载多个app，只需增设-apptest即可。
