@@ -629,6 +629,33 @@ static void do_cpu_reset(void *opaque)
                 info->secondary_cpu_reset_hook(cpu, info);
             }
         }
+    } else {
+       /* No kernel image or firmware has been supplied.  Reset to the
+        * default endianness for the current board (e.g. so that code loaded
+        * via the gdb stub interface does the right thing).
+        */
+       if (arm_feature(env, ARM_FEATURE_V7)) {
+           int i;
+           if (cpu->reset_sctlr & SCTLR_EE) {
+               env->cp15.sctlr_el[1] |= SCTLR_E0E;
+               for (i = 1; i < 4; ++i) {
+                   env->cp15.sctlr_el[i] |= SCTLR_EE;
+               }
+               env->uncached_cpsr |= CPSR_E;
+           } else {
+                env->cp15.sctlr_el[1] &= ~SCTLR_E0E;
+                for (i = 1; i < 4; ++i) {
+                    env->cp15.sctlr_el[i] &= ~SCTLR_EE;
+                }
+                env->uncached_cpsr &= ~CPSR_E;
+           }
+       } else {
+           if (cpu->reset_sctlr & SCTLR_B) {
+               env->cp15.sctlr_el[1] |= SCTLR_B;
+           } else {
+               env->cp15.sctlr_el[1] &= ~SCTLR_B;
+           }
+       }
     }
 }
 
