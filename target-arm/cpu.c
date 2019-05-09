@@ -32,6 +32,7 @@
 #include "sysemu/sysemu.h"
 #include "sysemu/kvm.h"
 #include "kvm_arm.h"
+#include "exec/cpu-common.h"
 
 static void arm_cpu_set_pc(CPUState *cs, vaddr value)
 {
@@ -532,6 +533,9 @@ static Property arm_cpu_rvbar_property =
 static Property arm_cpu_has_el3_property =
             DEFINE_PROP_BOOL("has_el3", ARMCPU, has_el3, true);
 
+static Property arm_cpu_cfgend_property =
+            DEFINE_PROP_BOOL("cfgend", ARMCPU, cfgend, false);
+
 static Property arm_cpu_has_mpu_property =
             DEFINE_PROP_BOOL("has-mpu", ARMCPU, has_mpu, true);
 
@@ -585,6 +589,8 @@ static void arm_cpu_post_init(Object *obj)
         }
     }
 
+    qdev_property_add_static(DEVICE(obj), &arm_cpu_cfgend_property,
+                             &error_abort);
 }
 
 static void arm_cpu_finalizefn(Object *obj)
@@ -726,6 +732,14 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
                            address_space_init_shareable(cs->memory,
                                                         "cpu-memory"),
                            ARMASIdx_NS);
+
+    if (cpu->cfgend) {
+        if (arm_feature(&cpu->env, ARM_FEATURE_V7)) {
+            cpu->reset_sctlr |= SCTLR_EE;
+        } else {
+            cpu->reset_sctlr |= SCTLR_B;
+        }
+    }
 #endif
 
     qemu_init_vcpu(cs);
