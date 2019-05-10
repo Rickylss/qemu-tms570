@@ -68,6 +68,18 @@ static void vim_update(VimState *s)
     qemu_set_irq(s->fiq, s->first_fiq_channel);
 }
 
+static uint32_t switch_vimram_to_be(uint32_t isr){
+    uint32_t new_isr = 0x0;
+
+    for (size_t i = 0; i < 4; i++)
+    {
+        new_isr |= (isr & 0xff) << (8 * (3-i));
+        isr >>= 8;
+    }
+    
+    return new_isr;
+}
+
 /* Update interrupts */
 static void vim_update_vectors(VimState *s)
 {
@@ -83,7 +95,7 @@ static void vim_update_vectors(VimState *s)
             uint32_t first_bit = fiq[i] & (~(fiq[i]-1));
             uint8_t channel = (32 * i) + log(first_bit)/log(2);
             s->first_fiq_channel = channel;
-            s->first_fiq_isr = s->vimram->isrFunc[channel + 1];
+            s->first_fiq_isr = switch_vimram_to_be(s->vimram->isrFunc[channel + 1]);
             if (s->is_read)
             {
                 s->is_pending[i] &= ~first_bit;
@@ -104,7 +116,7 @@ static void vim_update_vectors(VimState *s)
             uint32_t first_bit = irq[i] & (~(irq[i]-1));
             uint8_t channel = (32 * i) + log(first_bit)/log(2);
             s->first_irq_channel = channel;
-            s->first_irq_isr = s->vimram->isrFunc[channel + 1];
+            s->first_irq_isr = switch_vimram_to_be(s->vimram->isrFunc[channel + 1]);
             if (s->is_read)
             {
                 s->is_pending[i] &= ~first_bit;
@@ -309,7 +321,7 @@ static const MemoryRegionOps vim_ops = {
 static const MemoryRegionOps vimram_ops = {
     .read = vimram_read,
     .write = vimram_write,
-    .endianness = DEVICE_BIG_ENDIAN,
+    .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
 /*
