@@ -52,6 +52,7 @@ static void tms570_init(MachineState *machine,
     ObjectClass *cpu_oc;
     Object *cpuobj;
     ARMCPU *cpu;
+    CPUClass *cc;
     MemoryRegion *sysmem = get_system_memory();
     MemoryRegion *flash = g_new(MemoryRegion, 1);
     MemoryRegion *ram = g_new(MemoryRegion, 1);
@@ -65,6 +66,10 @@ static void tms570_init(MachineState *machine,
     qemu_irq rti[2];
     DeviceState *dev;
     SysBusDevice *vimdev;
+    char **cpustr;
+    const char *cpu_model = machine->cpu_model;
+    Error *err = NULL;
+    const char *typename;
     int n;
 
 
@@ -76,13 +81,24 @@ static void tms570_init(MachineState *machine,
         break;
     }
 
-    cpu_oc = cpu_class_by_name(TYPE_ARM_CPU, machine->cpu_model);
+    cpustr = g_strsplit(cpu_model, ",", 2);
+
+    cpu_oc = cpu_class_by_name(TYPE_ARM_CPU, cpustr[0]);
     if (!cpu_oc) {
         fprintf(stderr, "Unable to find CPU definition\n");
         exit(1);
     }
+    typename = object_class_get_name(cpu_oc);
 
-    cpuobj = object_new(object_class_get_name(cpu_oc));
+    cc = CPU_CLASS(cpu_oc);
+    cc->parse_features(typename, cpustr[1], &err);
+    g_strfreev(cpustr);
+    if (err) {
+        error_report_err(err);
+        exit(1);
+    }
+
+    cpuobj = object_new(typename);
 
     /* ARM cortex-r4f do not support el3 */
     if (object_property_find(cpuobj, "has_el3", NULL)) {

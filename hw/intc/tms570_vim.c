@@ -303,13 +303,13 @@ static void vimram_write(void *opaque, hwaddr offset,
 static const MemoryRegionOps vim_ops = {
     .read = vim_read,
     .write = vim_write,
-    .endianness = DEVICE_NATIVE_ENDIAN,
+    .endianness = DEVICE_BIG_ENDIAN,
 };
 
 static const MemoryRegionOps vimram_ops = {
     .read = vimram_read,
     .write = vimram_write,
-    .endianness = DEVICE_NATIVE_ENDIAN,
+    .endianness = DEVICE_BIG_ENDIAN,
 };
 
 /*

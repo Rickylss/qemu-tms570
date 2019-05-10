@@ -560,7 +560,7 @@ static void integratorcp_init(MachineState *machine)
     cc->parse_features(typename, cpustr[1], &err);
     g_strfreev(cpustr);
     if (err) {
-        error_report(err);
+        error_report_err(err);
         exit(1);
     }
 
