@@ -22,6 +22,17 @@
 #include "qemu/config-file.h"
 #include "exec/address-spaces.h"
 
+#define APPNAMELENGTH   100
+#define APPMAXCOUNT    30
+typedef struct {
+    char appname[APPNAMELENGTH];
+    uint32_t appaddr;
+}APPinfo;
+
+extern APPinfo app[APPMAXCOUNT];
+extern int appcount;
+extern uint32_t apptestaddr;
+
 /* Kernel boot protocol is specified in the kernel docs
  * Documentation/arm/Booting and Documentation/arm64/booting.txt
  * They have different preferred image load offsets from system RAM base.
@@ -1026,6 +1037,277 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
 
     info->load_kernel_notifier.cpu = cpu;
     info->load_kernel_notifier.notifier.notify = arm_load_kernel_notify;
+    qemu_add_machine_init_done_notifier(&info->load_kernel_notifier.notifier);
+
+    /* CPU objects (unlike devices) are not automatically reset on system
+     * reset, so we must always register a handler to do so. If we're
+     * actually loading a kernel, the handler is also responsible for
+     * arranging that we start it correctly.
+     */
+    for (cs = CPU(cpu); cs; cs = CPU_NEXT(cs)) {
+        qemu_register_reset(do_cpu_reset, ARM_CPU(cs));
+    }
+}
+
+static void arm_load_app_notify(Notifier *notifier, void *data)
+{
+    CPUState *cs;
+    int kernel_size;
+    int initrd_size;
+    int is_linux = 0;
+    uint64_t elf_entry, elf_low_addr, elf_high_addr;
+    int elf_machine;
+    hwaddr entry, kernel_load_offset;
+    static const ARMInsnFixup *primary_loader;
+    ArmLoadKernelNotifier *n = DO_UPCAST(ArmLoadKernelNotifier,
+                                         notifier, notifier);
+    ARMCPU *cpu = n->cpu;
+    struct arm_boot_info *info =
+        container_of(n, struct arm_boot_info, load_kernel_notifier);
+
+    /* The board code is not supposed to set secure_board_setup unless
+     * running its code in secure mode is actually possible, and KVM
+     * doesn't support secure.
+     */
+    assert(!(info->secure_board_setup && kvm_enabled()));
+
+    /* Load the kernel.  */
+    if (!info->kernel_filename || info->firmware_loaded) {
+
+        if (have_dtb(info)) {
+            /* If we have a device tree blob, but no kernel to supply it to (or
+             * the kernel is supposed to be loaded by the bootloader), copy the
+             * DTB to the base of RAM for the bootloader to pick up.
+             */
+            if (load_dtb(info->loader_start, info, 0) < 0) {
+                exit(1);
+            }
+        }
+
+        if (info->kernel_filename) {
+            FWCfgState *fw_cfg;
+            bool try_decompressing_kernel;
+
+            fw_cfg = fw_cfg_find();
+            try_decompressing_kernel = arm_feature(&cpu->env,
+                                                   ARM_FEATURE_AARCH64);
+
+            /* Expose the kernel, the command line, and the initrd in fw_cfg.
+             * We don't process them here at all, it's all left to the
+             * firmware.
+             */
+            load_image_to_fw_cfg(fw_cfg,
+                                 FW_CFG_KERNEL_SIZE, FW_CFG_KERNEL_DATA,
+                                 info->kernel_filename,
+                                 try_decompressing_kernel);
+            load_image_to_fw_cfg(fw_cfg,
+                                 FW_CFG_INITRD_SIZE, FW_CFG_INITRD_DATA,
+                                 info->initrd_filename, false);
+
+            if (info->kernel_cmdline) {
+                fw_cfg_add_i32(fw_cfg, FW_CFG_CMDLINE_SIZE,
+                               strlen(info->kernel_cmdline) + 1);
+                fw_cfg_add_string(fw_cfg, FW_CFG_CMDLINE_DATA,
+                                  info->kernel_cmdline);
+            }
+        }
+
+        /* We will start from address 0 (typically a boot ROM image) in the
+         * same way as hardware.
+         */
+        return;
+    }
+
+    if (arm_feature(&cpu->env, ARM_FEATURE_AARCH64)) {
+        primary_loader = bootloader_aarch64;
+        kernel_load_offset = KERNEL64_LOAD_ADDR;
+        elf_machine = EM_AARCH64;
+    } else {
+        primary_loader = bootloader;
+        if (!info->write_board_setup) {
+            primary_loader += BOOTLOADER_NO_BOARD_SETUP_OFFSET;
+        }
+        kernel_load_offset = KERNEL_LOAD_ADDR;
+        elf_machine = EM_ARM;
+    }
+
+    info->dtb_filename = qemu_opt_get(qemu_get_machine_opts(), "dtb");
+
+    if (!info->secondary_cpu_reset_hook) {
+        info->secondary_cpu_reset_hook = default_reset_secondary;
+    }
+    if (!info->write_secondary_boot) {
+        info->write_secondary_boot = default_write_secondary;
+    }
+
+    if (info->nb_cpus == 0)
+        info->nb_cpus = 1;
+
+    /* We want to put the initrd far enough into RAM that when the
+     * kernel is uncompressed it will not clobber the initrd. However
+     * on boards without much RAM we must ensure that we still leave
+     * enough room for a decent sized initrd, and on boards with large
+     * amounts of RAM we must avoid the initrd being so far up in RAM
+     * that it is outside lowmem and inaccessible to the kernel.
+     * So for boards with less  than 256MB of RAM we put the initrd
+     * halfway into RAM, and for boards with 256MB of RAM or more we put
+     * the initrd at 128MB.
+     */
+    info->initrd_start = info->loader_start +
+        MIN(info->ram_size / 2, 128 * 1024 * 1024);
+
+    /* Assume that raw images are linux kernels, and ELF images are not.  */
+    kernel_size = arm_load_elf(info, &elf_entry, &elf_low_addr,
+                               &elf_high_addr, elf_machine);
+    if (kernel_size > 0 && have_dtb(info)) {
+        /* If there is still some room left at the base of RAM, try and put
+         * the DTB there like we do for images loaded with -bios or -pflash.
+         */
+        if (elf_low_addr > info->loader_start
+            || elf_high_addr < info->loader_start) {
+            /* Pass elf_low_addr as address limit to load_dtb if it may be
+             * pointing into RAM, otherwise pass '0' (no limit)
+             */
+            if (elf_low_addr < info->loader_start) {
+                elf_low_addr = 0;
+            }
+            if (load_dtb(info->loader_start, info, elf_low_addr) < 0) {
+                exit(1);
+            }
+        }
+    }
+    entry = elf_entry;
+    if (kernel_size < 0) {
+        kernel_size = load_uimage(info->kernel_filename, &entry, NULL,
+                                  &is_linux, NULL, NULL);
+    }
+    /* On aarch64, it's the bootloader's job to uncompress the kernel. */
+    if (arm_feature(&cpu->env, ARM_FEATURE_AARCH64) && kernel_size < 0) {
+        entry = info->loader_start + kernel_load_offset;
+        kernel_size = load_image_gzipped(info->kernel_filename, entry,
+                                         info->ram_size - kernel_load_offset);
+        is_linux = 1;
+    }
+    if (kernel_size < 0) {
+        entry = info->loader_start + kernel_load_offset;
+        int appindex=0;
+        int appsize=-1;
+        for(; appindex < appcount; appindex++){
+            appsize = load_image_targphys(app[appindex].appname,app[appindex].appaddr,ram_size-app[appindex].appaddr);
+            if(appsize < 0){
+                hw_error("qemu:could not load app:%s\n",app[appindex].appname);
+            }
+        }
+    }
+        is_linux = 1;
+    }
+    if (kernel_size < 0) {
+        fprintf(stderr, "qemu: could not load kernel '%s'\n",
+                info->kernel_filename);
+        exit(1);
+    }
+    info->entry = entry;
+    if (is_linux) {
+        uint32_t fixupcontext[FIXUP_MAX];
+
+        if (info->initrd_filename) {
+            initrd_size = load_ramdisk(info->initrd_filename,
+                                       info->initrd_start,
+                                       info->ram_size -
+                                       info->initrd_start);
+            if (initrd_size < 0) {
+                int appindex=0;
+                int appsize=-1;
+                for(; appindex < appcount; appindex++){
+                    appsize = load_image_targphys(app[appindex].appname,app[appindex].appaddr,ram_size-app[appindex].appaddr);
+                    if(appsize < 0){
+                        hw_error("qemu:could not load app:%s\n",app[appindex].appname);
+                    }
+                }
+            }
+            if (initrd_size < 0) {
+                fprintf(stderr, "qemu: could not load initrd '%s'\n",
+                        info->initrd_filename);
+                exit(1);
+            }
+        } else {
+            initrd_size = 0;
+        }
+        info->initrd_size = initrd_size;
+
+        fixupcontext[FIXUP_BOARDID] = info->board_id;
+        fixupcontext[FIXUP_BOARD_SETUP] = info->board_setup_addr;
+
+        /* for device tree boot, we pass the DTB directly in r2. Otherwise
+         * we point to the kernel args.
+         */
+        if (have_dtb(info)) {
+            hwaddr align;
+            hwaddr dtb_start;
+
+            if (elf_machine == EM_AARCH64) {
+                /*
+                 * Some AArch64 kernels on early bootup map the fdt region as
+                 *
+                 *   [ ALIGN_DOWN(fdt, 2MB) ... ALIGN_DOWN(fdt, 2MB) + 2MB ]
+                 *
+                 * Let's play safe and prealign it to 2MB to give us some space.
+                 */
+                align = 2 * 1024 * 1024;
+            } else {
+                /*
+                 * Some 32bit kernels will trash anything in the 4K page the
+                 * initrd ends in, so make sure the DTB isn't caught up in that.
+                 */
+                align = 4096;
+            }
+
+            /* Place the DTB after the initrd in memory with alignment. */
+            dtb_start = QEMU_ALIGN_UP(info->initrd_start + initrd_size, align);
+            if (load_dtb(dtb_start, info, 0) < 0) {
+                exit(1);
+            }
+            fixupcontext[FIXUP_ARGPTR] = dtb_start;
+        } else {
+            fixupcontext[FIXUP_ARGPTR] = info->loader_start + KERNEL_ARGS_ADDR;
+            if (info->ram_size >= (1ULL << 32)) {
+                fprintf(stderr, "qemu: RAM size must be less than 4GB to boot"
+                        " Linux kernel using ATAGS (try passing a device tree"
+                        " using -dtb)\n");
+                exit(1);
+            }
+        }
+        fixupcontext[FIXUP_ENTRYPOINT] = entry;
+
+        write_bootloader("bootloader", info->loader_start,
+                         primary_loader, fixupcontext);
+
+        if (info->nb_cpus > 1) {
+            info->write_secondary_boot(cpu, info);
+        }
+        if (info->write_board_setup) {
+            info->write_board_setup(cpu, info);
+        }
+
+        /* Notify devices which need to fake up firmware initialization
+         * that we're doing a direct kernel boot.
+         */
+        object_child_foreach_recursive(object_get_root(),
+                                       do_arm_linux_init, info);
+    }
+    info->is_linux = is_linux;
+
+    for (cs = CPU(cpu); cs; cs = CPU_NEXT(cs)) {
+        ARM_CPU(cs)->env.boot_info = info;
+    }
+}
+
+void arm_load_app(ARMCPU *cpu, struct arm_boot_info *info)
+{
+    CPUState *cs;
+
+    info->load_kernel_notifier.cpu = cpu;
+    info->load_kernel_notifier.notifier.notify = arm_load_app_notify;
     qemu_add_machine_init_done_notifier(&info->load_kernel_notifier.notifier);
 
     /* CPU objects (unlike devices) are not automatically reset on system
