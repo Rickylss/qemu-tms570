@@ -120,7 +120,7 @@ static uint64_t sci_read(void *opaque, hwaddr offset,
                            unsigned size)
 {
     SCIState *s = (SCIState *)opaque;
-    uint32_t buff;
+    uint32_t buff = 0;
 
     if (offset >= 0x3c && offset < 0x90) { //SCIPIO0~8
         return s->pio_control[(offset - 0x3c) >> 2];
