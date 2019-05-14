@@ -127,7 +127,7 @@ static void tms570_init(MachineState *machine,
     /* SDRAM at address 0x80000000.  */
     memory_region_add_subregion(sysmem, 0x80000000, sdram);
 
-    machine->ram_size = flash_size + ram_size;
+    machine->ram_size = 0x08000000 + ram_size;
 
     //sysbus_create_simple("tms570-vimram", 0xfff82000, NULL); /* VIMRAM */
     /* VIM at address 0xfffffe00 */

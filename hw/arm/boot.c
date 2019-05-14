@@ -1060,7 +1060,7 @@ void arm_load_app(ARMCPU *cpu, struct arm_boot_info *info)
     int appindex=0;
     int appsize=-1;
     for(; appindex < appcount; appindex++){
-        appsize = load_image_targphys(app[appindex].appname,app[appindex].appaddr,ram_size-app[appindex].appaddr);
+        appsize = load_image_targphys(app[appindex].appname,app[appindex].appaddr,info->ram_size-app[appindex].appaddr);
         if(appsize < 0){
             hw_error("qemu:could not load app:%s\n",app[appindex].appname);
         }

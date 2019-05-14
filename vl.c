@@ -211,7 +211,7 @@ static int default_vga = 1;
 static int default_net = 1;
 
 
-#define APPNAMELENGTH   30
+#define APPNAMELENGTH   100
 #define APPMAXCOUNT    30
 typedef struct {
     char appname[APPNAMELENGTH];
