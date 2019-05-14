@@ -2168,6 +2168,16 @@ enum {
 };
 
 enum {
+    /* PowerPC E200 input pins */
+    PPCE200_INPUT_RESET_SYS = 0,
+    PPCE200_INPUT_INT        = 1,
+    PPCE200_INPUT_CINT       = 2,
+    PPCE200_INPUT_MCK        = 3,
+    PPCE200_INPUT_DEBUG      = 4, 
+    PPCE200_INPUT_NB,
+};
+
+enum {
     /* PowerPC 40x input pins */
     PPC40x_INPUT_RESET_CORE = 0,
     PPC40x_INPUT_RESET_CHIP = 1,
