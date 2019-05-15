@@ -3,8 +3,8 @@
  *
  * Copyright (c) 2019 FormalTech
  * Written by xiaohaibiao
+ * 
  */
-
 
 #include "hw/pci/pci.h"
 #include "hw/ppc/ppc_e500.h"
@@ -19,9 +19,19 @@
 #define MAX_IRQ (329 + 8)
 
 typedef enum {
+    DPM,
+    LSM,
+} Operation_Mode;
+
+typedef enum {
     SOFTWARE_VECTOR_MODE,
     HARDWARE_VECTOR_MODE,
 } Vector_Mode;
+
+typedef struct stack {
+    int top;
+    int pri[15];
+} stack;
 
 typedef struct IntcState {
     /*< private >*/
@@ -30,9 +40,10 @@ typedef struct IntcState {
 
     MemoryRegion mem;
 
-    Vector_Mode mode;
+    Vector_Mode vect_mode;
+    Operation_mode op_mode;
 
-    uint32_t LIFO[14];
+    stack LIFO;
     uint32_t vector_table_entry_size;
 
     /* Behavior control */
@@ -40,41 +51,69 @@ typedef struct IntcState {
     uint32_t cpr_prc0; /* INTC Current Priority Register for Processor 0 */
     uint32_t iackr_prc0; /* INTC Interrupt Acknowledge Register for Processor 0 */
     uint32_t eoir_prc0; /* INTC End of Interrupt Register for Processor 0 */
-    uint32_t sscir[8]; /* INTC Software Set/Clear Interrupt Register */
-    uint8_t pri[337]; /* INTC Priority Select Registers */
+    uint32_t sscir[2]; /* INTC Software Set/Clear Interrupt Register */
+    uint32_t pri[337]; /* INTC Priority Select Registers */
+
+    //uint32_t asserted_irq[];
 
     uint32_t irq;
 } IntcState;
 
 static void switch_vector_mode(IntcState *s, uint32_t is_hardware_mode)
 {
-    if (is_hardware_mode)
-    {
-        s->mode = HARDWARE_VECTOR_MODE;
-    } else
-    {
-        s->mode = SOFTWARE_VECTOR_MODE;
+    if (is_hardware_mode) {
+        s->vect_mode = HARDWARE_VECTOR_MODE;
+    } else {
+        s->vect_mode = SOFTWARE_VECTOR_MODE;
     }
 }
 
 static void set_vector_table_entry_size(IntcState *s, uint32_t is_8_bytes)
 {
-    if (is_8_bytes)
-    {
+    if (is_8_bytes) {
         s->vector_table_entry_size = 8;//bytes
-    } else
-    {
+    } else {
         s->vector_table_entry_size = 4;//bytes
     }
 }
 
-static void push_LIFO(IntcState *s)
+static void push_LIFO(IntcState *s, uint32_t pri)
 {
-
+    if (++(s->LIFO.top) < 16) {
+        s->LIFO.pri[s->LIFO.top] = pri;
+    } else { // overwritten the priorities first pushed
+        for (int i=0; i < 15; i++) {
+            if (i == 14) {
+                s->LIFO.pri[i] = pri;
+            } else {
+                s->LIFO.pri[i] = s->LIFO.pri[i+1];
+            }
+        }
+    }
 }
 
-static void pop_LIFO(IntcState *s)
+static uint32_t pop_LIFO(IntcState *s)
 {
+    if (s->LIFO.top = 0) {
+        return 0;
+    } else {
+        return s->LIFO.pri[(s->LIFO.top)--];
+    }
+}
+
+static void intc_update_vectors(IntcState *s)
+{
+
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 4; j++) {
+            if (s->sscir[i] & (0x1 << (3-j)*8)) {
+                if(s->pri[(4*i+j)] <= s->cpr_prc0) {
+                    continue;
+                }
+                
+            }
+        }
+    }
 
 }
 
@@ -82,12 +121,32 @@ static void intc_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
 {
     IntcState *s = opaque;
 
+    if ( offset >= 0x20 && offset < 0x28) { // SSCIRn
+        int index = (offset - 0x20) >> 2;
+        s->sscir[index] &= ~(val & 0x01010101);
+        s->sscir[index] |= (val >> 1) & 0x01010101;
+        intc_update_vectors(s);
+    }
+
+    if (offset >= 0x40 && offset < 0x0194) { // PSRn
+        int pri_index;
+        int index = (offset - 0x40) >> 2;
+        int start_index = index * 4;
+        for (int i = 0; i < 4; i++) {
+            pri_index = start_index + i;
+            if (pri_index < 337) {
+                s->pri[pri_index] = (val >> 8*(3-i)) & 0xff;
+            }
+        }
+    }
+
     switch (offset)
     {
     case 0x00:
-        s->bcr = val;
+        s->bcr = val & 0x21;
         /* if bcr & 0x1 swtich to hardware vector mode */
         switch_vector_mode(s, (s->bcr & 0x1));
+        /* set vector table entry size */
         set_vector_table_entry_size(s, (s->bcr & 0x20));
         break;
     case 0x08:
@@ -97,7 +156,9 @@ static void intc_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
     case 0x10:
         s->iackr_prc0 = val;
         break;
-    
+    case 0x18:
+        pop_LIFO(s);
+        break;
     default:
         break;
     }
@@ -107,6 +168,25 @@ static uint64_t intc_read(void *opaque, hwaddr offset, unsigned size)
 {
     IntcState *s = opaque;
 
+    if ( offset >= 0x20 && offset < 0x28) { // SSCIRn
+        int index = (offset - 0x20) >> 2;
+        return s->sscir[index] & 0x01010101; //SETx bit is always read as 0
+    }
+
+    if (offset >= 0x40 && offset < 0x0194) { // PSRn
+        int pri_index;
+        int index = (offset - 0x40) >> 2;
+        int start_index = index * 4;
+        uint32_t ret;
+        for (int i = 0; i < 4; i++) {
+            pri_index = start_index + i;
+            if (pri_index < 337) {
+                ret += s->pri[pri_index] << 8*(3-i);
+            }
+        }
+        return ret;
+    }
+
     switch (offset)
     {
     case 0x00:
@@ -114,7 +194,7 @@ static uint64_t intc_read(void *opaque, hwaddr offset, unsigned size)
     case 0x08:
         return s->cpr_prc0;
     case 0x10:
-        switch (s->mode)
+        switch (s->vect_mode)
         {
         case SOFTWARE_VECTOR_MODE:
             push_LIFO(s);
@@ -123,13 +203,51 @@ static uint64_t intc_read(void *opaque, hwaddr offset, unsigned size)
         case HARDWARE_VECTOR_MODE:
         default:
             break;
-        }
-              
+        }  
         return s->iackr_prc0;
+    case 0x18:
+        return 0x0;
 
     default:
         break;
     }
+}
+
+static void intc_set_irq(void *opaque, int irq, int level)
+{
+    IntcState *s = opaque;
+
+    if (irq >= MAX_IRQ) {
+        fprintf(stderr, "%s: IRQ %d out of range\n", __func__, irq);
+        abort();
+    }
+
+    if (irq < 7) {
+        fprintf(stderr, "%s: IRQ %d is software-setable\n", __func__, irq);
+        abort();
+    }
+
+    /* find the correspond pri for irq */
+    uint8_t pri = s->psr[irq];
+    
+    if (level) {
+        if (pri > (s->cpr_prc0 &0xff)) {
+            s->iackr_prc0 = new vector;
+            push_LIFO(s);
+            s->cpr_prc0 = pri;
+        }
+    }
+
+}
+
+static void operating_mode_set(void *opaque, int line, int level)
+{
+    IntcState *s = opaque;
+    if (level) {
+        s->op_mode = LSM;
+    } else {
+        s->op_mode = DPM;
+    } 
 }
 
 static const MemoryRegionOps intc_ops = {
@@ -143,24 +261,6 @@ static const VMStateDescription vmstate_intc = {
     .version_id = 0,
     .minimum_version_id = 0,
     .fields = (VMStateField[]) {
-        VMSTATE_UINT32(gcr, OpenPICState),
-        VMSTATE_UINT32(vir, OpenPICState),
-        VMSTATE_UINT32(pir, OpenPICState),
-        VMSTATE_UINT32(spve, OpenPICState),
-        VMSTATE_UINT32(tfrr, OpenPICState),
-        VMSTATE_UINT32(max_irq, OpenPICState),
-        VMSTATE_STRUCT_VARRAY_UINT32(src, OpenPICState, max_irq, 0,
-                                     vmstate_openpic_irqsource, IRQSource),
-        VMSTATE_UINT32_EQUAL(nb_cpus, OpenPICState),
-        VMSTATE_STRUCT_VARRAY_UINT32(dst, OpenPICState, nb_cpus, 0,
-                                     vmstate_openpic_irqdest, IRQDest),
-        VMSTATE_STRUCT_ARRAY(timers, OpenPICState, OPENPIC_MAX_TMR, 0,
-                             vmstate_openpic_timer, OpenPICTimer),
-        VMSTATE_STRUCT_ARRAY(msi, OpenPICState, MAX_MSI, 0,
-                             vmstate_openpic_msi, OpenPICMSI),
-        VMSTATE_UINT32(irq_ipi0, OpenPICState),
-        VMSTATE_UINT32(irq_tim0, OpenPICState),
-        VMSTATE_UINT32(irq_msi, OpenPICState),
         VMSTATE_END_OF_LIST()
     }
 };
@@ -176,6 +276,8 @@ static void intc_init(Object *obj)
     qdev_init_gpio_in(dev, intc_set_irq, MAX_IRQ);
 
     sysbus_init_irq(d, &s->irq);
+
+    qdev_init_gpio_in_named(dev, operating_mode_set, "lsm_dpm", 1);
 }
 
 static void intc_realize(DeviceState *dev, Error **errp)
@@ -184,8 +286,6 @@ static void intc_realize(DeviceState *dev, Error **errp)
 }
 
 static Property intc_properties[] = {
-    DEFINE_PROP_UINT32("model", OpenPICState, model, OPENPIC_MODEL_FSL_MPIC_20),
-    DEFINE_PROP_UINT32("nb_cpus", OpenPICState, nb_cpus, 1),
     DEFINE_PROP_END_OF_LIST(),
 };
 
