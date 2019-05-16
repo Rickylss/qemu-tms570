@@ -44,17 +44,21 @@ typedef struct IntcState {
     Operation_mode op_mode;
 
     stack LIFO;
-    uint32_t vector_table_entry_size;
+    uint32_t entry_size;
 
     /* Behavior control */
     uint32_t bcr; /* INTC Block Configuration Register */
     uint32_t cpr_prc0; /* INTC Current Priority Register for Processor 0 */
+    uint32_t cpr_prc1; /* INTC Current Priority Register for Processor 1 */
     uint32_t iackr_prc0; /* INTC Interrupt Acknowledge Register for Processor 0 */
+    uint32_t iackr_prc1; /* INTC Interrupt Acknowledge Register for Processor 1 */
     uint32_t eoir_prc0; /* INTC End of Interrupt Register for Processor 0 */
+    uint32_t eoir_prc1; /* INTC End of Interrupt Register for Processor 1 */
     uint32_t sscir[2]; /* INTC Software Set/Clear Interrupt Register */
     uint32_t pri[337]; /* INTC Priority Select Registers */
 
-    //uint32_t asserted_irq[];
+    uint8_t asserted_int[337];
+    uint32_t current_irq;
 
     uint32_t irq;
 } IntcState;
@@ -71,20 +75,20 @@ static void switch_vector_mode(IntcState *s, uint32_t is_hardware_mode)
 static void set_vector_table_entry_size(IntcState *s, uint32_t is_8_bytes)
 {
     if (is_8_bytes) {
-        s->vector_table_entry_size = 8;//bytes
+        s->entry_size = 8;//bytes
     } else {
-        s->vector_table_entry_size = 4;//bytes
+        s->entry_size = 4;//bytes
     }
 }
 
-static void push_LIFO(IntcState *s, uint32_t pri)
+static void push_LIFO(IntcState *s)
 {
     if (++(s->LIFO.top) < 16) {
-        s->LIFO.pri[s->LIFO.top] = pri;
+        s->LIFO.pri[s->LIFO.top] = s->cpr_prc0 & 0xf;
     } else { // overwritten the priorities first pushed
         for (int i=0; i < 15; i++) {
             if (i == 14) {
-                s->LIFO.pri[i] = pri;
+                s->LIFO.pri[i] = s->cpr_prc0 & 0xf;
             } else {
                 s->LIFO.pri[i] = s->LIFO.pri[i+1];
             }
@@ -103,18 +107,50 @@ static uint32_t pop_LIFO(IntcState *s)
 
 static void intc_update_vectors(IntcState *s)
 {
+    int irq = 0;
+    int32_t temp_pri = 0;
 
-    for (int i = 0; i < 2; i++) {
-        for (int j = 0; j < 4; j++) {
-            if (s->sscir[i] & (0x1 << (3-j)*8)) {
-                if(s->pri[(4*i+j)] <= s->cpr_prc0) {
-                    continue;
-                }
-                
+    for (int i = 0; i < MAX_IRQ; i++) {
+        if (s->asserted_int[i])
+        { // asserted interrupt
+            if (s->pri[i] > temp_pri) { //only the one with the lowest vector is chosen
+                temp_pri = s->pri[i];
+                irq = i;
             }
         }
     }
 
+    /* compare to current pri */
+    if (temp_pri > (s->cpr_prc0 & 0xf))
+    {
+        s->current_irq = irq;
+        push_LIFO(s);
+        s->cpr_prc0 = temp_pri & 0xf;
+        /* set INTC_IACKR_PRC0 with current isr */
+        s->iackr_prc0 += s->entry_size * irq;
+
+        qemu_irq_raise(s->irq);
+    }
+
+    qemu_irq_lower(s->irq);
+}
+
+static void intc_set_software_irq()
+{
+    /* get asserted software-settable interrupt irq */
+    for (int i = 0; i < 2; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            if(s->sscir[i] & (0x1 << (3-j)*8)) {
+                s->asserted_int[i*4 + j] = 1;
+            } else {
+                s->asserted_int[i*4 + j] = 0;
+            }
+        }
+    }
+
+    intc_update_vectors(s);
 }
 
 static void intc_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
@@ -125,18 +161,13 @@ static void intc_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
         int index = (offset - 0x20) >> 2;
         s->sscir[index] &= ~(val & 0x01010101);
         s->sscir[index] |= (val >> 1) & 0x01010101;
-        intc_update_vectors(s);
+        intc_set_software_irq(s);
     }
 
-    if (offset >= 0x40 && offset < 0x0194) { // PSRn
-        int pri_index;
-        int index = (offset - 0x40) >> 2;
-        int start_index = index * 4;
-        for (int i = 0; i < 4; i++) {
-            pri_index = start_index + i;
-            if (pri_index < 337) {
-                s->pri[pri_index] = (val >> 8*(3-i)) & 0xff;
-            }
+    if (offset >= 0x40 && offset < 0x0191) { // PSRn
+        int index = offset - 0x40;
+        if (index < 337) {
+            s->spr[index] = val & 0xff;
         }
     }
 
@@ -151,13 +182,16 @@ static void intc_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
         break;
     case 0x08:
         s->cpr_prc0 = val & 0xf;
+        s->pri[s->current_irq] = 0;
         intc_update_vectors(s);
         break;
     case 0x10:
         s->iackr_prc0 = val;
+        intc_update_vectors(s);
         break;
     case 0x18:
-        pop_LIFO(s);
+        s->cpr_prc0 = pop_LIFO(s);
+        intc_update_vectors(s);
         break;
     default:
         break;
@@ -197,8 +231,7 @@ static uint64_t intc_read(void *opaque, hwaddr offset, unsigned size)
         switch (s->vect_mode)
         {
         case SOFTWARE_VECTOR_MODE:
-            push_LIFO(s);
-            s->cpr_prc0 = 
+            intc_update_vectors(s);
             break;
         case HARDWARE_VECTOR_MODE:
         default:
@@ -213,7 +246,7 @@ static uint64_t intc_read(void *opaque, hwaddr offset, unsigned size)
     }
 }
 
-static void intc_set_irq(void *opaque, int irq, int level)
+static void intc_set_peripheral_irq(void *opaque, int irq, int level)
 {
     IntcState *s = opaque;
 
@@ -227,17 +260,14 @@ static void intc_set_irq(void *opaque, int irq, int level)
         abort();
     }
 
-    /* find the correspond pri for irq */
-    uint8_t pri = s->psr[irq];
-    
+    /* enable asserted interrupt */
     if (level) {
-        if (pri > (s->cpr_prc0 &0xff)) {
-            s->iackr_prc0 = new vector;
-            push_LIFO(s);
-            s->cpr_prc0 = pri;
-        }
+        s->asserted_int[irq] = 1;
+    } else {
+        s->asserted_int[irq] = 0;
     }
 
+    intc_update_vectors(s);
 }
 
 static void operating_mode_set(void *opaque, int line, int level)
@@ -261,6 +291,13 @@ static const VMStateDescription vmstate_intc = {
     .version_id = 0,
     .minimum_version_id = 0,
     .fields = (VMStateField[]) {
+        VMSTATE_UINT32(bcr, IntcState),
+        VMSTATE_UINT32(cpr_prc0, IntcState),
+        VMSTATE_UINT32(iackr_prc0, IntcState),
+        VMSTATE_UINT32(eoir_prc0, IntcState),
+        VMSTATE_UINT32_ARRAY(ccsir, IntcState, 2),
+        VMSTATE_UINT32_ARRAY(pri, IntcState, MAX_IRQ),
+        VMSTATE_UINT8_ARRAY(asserted_int, IntcState, MAX_IRQ+1),
         VMSTATE_END_OF_LIST()
     }
 };
@@ -273,39 +310,28 @@ static void intc_init(Object *obj)
 
     memory_region_init_io(&s->mem, obj, &intc_ops, s, "mpc5675-intc", 0x4000);
     sysbus_init_mmio(d, &s->mem);
-    qdev_init_gpio_in(dev, intc_set_irq, MAX_IRQ);
+    qdev_init_gpio_in(dev, intc_set_peripheral_irq, MAX_IRQ);
 
+    /* external interrupt ivor4 */
     sysbus_init_irq(d, &s->irq);
 
     qdev_init_gpio_in_named(dev, operating_mode_set, "lsm_dpm", 1);
 }
-
-static void intc_realize(DeviceState *dev, Error **errp)
-{
-
-}
-
-static Property intc_properties[] = {
-    DEFINE_PROP_END_OF_LIST(),
-};
 
 static void intc_reset(DeviceState *d)
 {
     IntcState *s = INTC(d);
 
     s->cpr_prc0 = 0x0000000f;
-    s->vector_table_entry_size = 4;
+    s->entry_size = 4;//byte
 }
 
 static void intc_class_init(ObjectClass *oc, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(oc);
 
-    dc->realize = intc_realize;
-    dc->props = intc_properties;
     dc->reset = intc_reset;
     dc->vmsd = &vmstate_intc;
-    //set_bit(DEVICE_CATEGORY_MISC, dc->categories);
 }
 
 static const TypeInfo intc_info = {

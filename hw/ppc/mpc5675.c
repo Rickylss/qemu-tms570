@@ -154,6 +154,9 @@ static void ppc_5675board_init(MachineState *machine)
     // int dt_size;
     int i;
     CPUPPCState *firstenv = NULL;
+    DeviceState *dev;
+    qemu_irq irq[2];
+    qemu_irq pic[337];
 
     /* Setup CPUs */
     if (machine->cpu_model == NULL) {
@@ -173,6 +176,10 @@ static void ppc_5675board_init(MachineState *machine)
         if (!firstenv) {
             firstenv = env;
         }
+
+        irq[i] = env.irq_inputs[PPCE200_INPUT_INT];
+
+        ppc_booke_timers_init(cpu, 400000000, PPC_TIMER_BOOKE);
 
         /* Register reset handler */
         if (!i) {
@@ -200,6 +207,22 @@ static void ppc_5675board_init(MachineState *machine)
     /* Register Memory */
     memory_region_allocate_system_memory(ram, NULL, "mpc8544ds.ram", ram_size);
     memory_region_add_subregion(address_space_mem, 0, ram);
+
+    /* intc0 external interrupt ivor4 */
+    dev = sysbus_create_varargs("mpc5675-intc", 0xfff48000,
+                                irq[0], NULL);
+
+    for (int n = 0; n < 337; n++) {
+        pic[n] = qdev_get_gpio_in(dev, n);
+    }
+
+    /* intc1 external interrupt ivor4 */
+    dev = sysbus_create_varargs("mpc5675-intc", 0x8ff48000,
+                                irq[1], NULL);
+
+    for (int n = 0; n < 337; n++) {
+        pic[n] = qdev_get_gpio_in(dev, n);
+    }
 
     /*
      * Smart firmware defaults ahead!
