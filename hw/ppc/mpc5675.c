@@ -142,7 +142,11 @@ static void ppc_5675_reset(void *opaque)
 static void ppc_5675board_init(MachineState *machine)
 {
     MemoryRegion *address_space_mem = get_system_memory();
-    MemoryRegion *ram = g_new(MemoryRegion, 1);
+    //MemoryRegion *ram = g_new(MemoryRegion, 1);
+    MemoryRegion *flash = g_new(MemoryRegion, 1);
+    MemoryRegion *ebi = g_new(MemoryRegion, 1);
+    MemoryRegion *sram = g_new(MemoryRegion, 1);
+    MemoryRegion *dram = g_new(MemoryRegion, 1);
     CPUPPCState *env = NULL;
     uint64_t loadaddr;
     int kernel_size = 0;
@@ -200,13 +204,28 @@ static void ppc_5675board_init(MachineState *machine)
     env = firstenv;
 
     /* Fixup Memory size on a alignment boundary */
-    ram_size &= ~(RAM_SIZES_ALIGN - 1);
-    fprintf(stderr,"ram_size:%lx\n",ram_size);
-    machine->ram_size = ram_size;
+    // ram_size &= ~(RAM_SIZES_ALIGN - 1);
+    // fprintf(stderr,"ram_size:%lx\n",ram_size);
+    // machine->ram_size = ram_size;
 
     /* Register Memory */
-    memory_region_allocate_system_memory(ram, NULL, "mpc8544ds.ram", ram_size);
-    memory_region_add_subregion(address_space_mem, 0, ram);
+    // memory_region_allocate_system_memory(ram, NULL, "mpc5675.ram", ram_size);
+    // memory_region_add_subregion(address_space_mem, 0x00000000, ram);
+    uint64_t flash_size = 512*M_BYTE;
+    memory_region_allocate_system_memory(flash, NULL, "mpc5675.flash", flash_size);
+    memory_region_add_subregion(address_space_mem, 0x00000000, flash);
+
+    uint64_t ebi_size = 512*M_BYTE;
+    memory_region_allocate_system_memory(ebi, NULL, "mpc5675.ebi", ebi_size);
+    memory_region_add_subregion(address_space_mem, 0x20000000, ebi);
+
+    uint64_t sram_size = 512*M_BYTE;
+    memory_region_allocate_system_memory(sram, NULL, "mpc5675.sram", sram_size);
+    memory_region_add_subregion(address_space_mem, 0x40000000, sram);
+
+    uint64_t dram_size = 767*M_BYTE;
+    memory_region_allocate_system_memory(dram, NULL, "mpc5675.dram", dram_size);
+    memory_region_add_subregion(address_space_mem, 0x60000000, dram);
 
     /* intc0 external interrupt ivor4 */
     dev = sysbus_create_varargs("mpc5675-intc", 0xfff48000,
