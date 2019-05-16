@@ -177,7 +177,7 @@ static void ppc_5675board_init(MachineState *machine)
             firstenv = env;
         }
 
-        irq[i] = env.irq_inputs[PPCE200_INPUT_INT];
+        irq[i] = env->irq_inputs[PPCE200_INPUT_INT];
 
         ppc_booke_timers_init(cpu, 400000000, PPC_TIMER_BOOKE);
 
@@ -216,13 +216,13 @@ static void ppc_5675board_init(MachineState *machine)
         pic[n] = qdev_get_gpio_in(dev, n);
     }
 
-    /* intc1 external interrupt ivor4 */
-    dev = sysbus_create_varargs("mpc5675-intc", 0x8ff48000,
-                                irq[1], NULL);
+    // /* intc1 external interrupt ivor4 */
+    // dev = sysbus_create_varargs("mpc5675-intc", 0x8ff48000,
+    //                             irq[1], NULL);
 
-    for (int n = 0; n < 337; n++) {
-        pic[n] = qdev_get_gpio_in(dev, n);
-    }
+    // for (int n = 0; n < 337; n++) {
+    //     pic[n] = qdev_get_gpio_in(dev, n);
+    // }
 
     /*
      * Smart firmware defaults ahead!

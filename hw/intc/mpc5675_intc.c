@@ -6,13 +6,10 @@
  * 
  */
 
-#include "hw/pci/pci.h"
-#include "hw/ppc/ppc_e500.h"
+#include "qemu/osdep.h"
 #include "hw/sysbus.h"
-#include "hw/pci/msi.h"
-#include "qemu/bitops.h"
-#include "qapi/qmp/qerror.h"
 #include "qemu/log.h"
+#include <math.h>
 
 #define TYPE_INTC "mpc5675-intc"
 #define INTC(obj) OBJECT_CHECK(IntcState, (obj), TYPE_INTC)
@@ -20,12 +17,12 @@
 
 typedef enum {
     DPM,
-    LSM,
+    LSM
 } Operation_Mode;
 
 typedef enum {
     SOFTWARE_VECTOR_MODE,
-    HARDWARE_VECTOR_MODE,
+    HARDWARE_VECTOR_MODE
 } Vector_Mode;
 
 typedef struct stack {
@@ -41,7 +38,7 @@ typedef struct IntcState {
     MemoryRegion mem;
 
     Vector_Mode vect_mode;
-    Operation_mode op_mode;
+    Operation_Mode op_mode;
 
     stack LIFO;
     uint32_t entry_size;
@@ -60,7 +57,7 @@ typedef struct IntcState {
     uint8_t asserted_int[337];
     uint32_t current_irq;
 
-    uint32_t irq;
+    qemu_irq irq;
 } IntcState;
 
 static void switch_vector_mode(IntcState *s, uint32_t is_hardware_mode)
@@ -98,7 +95,7 @@ static void push_LIFO(IntcState *s)
 
 static uint32_t pop_LIFO(IntcState *s)
 {
-    if (s->LIFO.top = 0) {
+    if (s->LIFO.top == 0) {
         return 0;
     } else {
         return s->LIFO.pri[(s->LIFO.top)--];
@@ -135,7 +132,7 @@ static void intc_update_vectors(IntcState *s)
     qemu_irq_lower(s->irq);
 }
 
-static void intc_set_software_irq()
+static void intc_set_software_irq(IntcState *s)
 {
     /* get asserted software-settable interrupt irq */
     for (int i = 0; i < 2; i++)
@@ -167,7 +164,7 @@ static void intc_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
     if (offset >= 0x40 && offset < 0x0191) { // PSRn
         int index = offset - 0x40;
         if (index < 337) {
-            s->spr[index] = val & 0xff;
+            s->pri[index] = val & 0xff;
         }
     }
 
@@ -194,6 +191,8 @@ static void intc_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
         intc_update_vectors(s);
         break;
     default:
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "intc_write: Bad offset %x\n", (int)offset);
         break;
     }
 }
@@ -242,7 +241,9 @@ static uint64_t intc_read(void *opaque, hwaddr offset, unsigned size)
         return 0x0;
 
     default:
-        break;
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "intc_read: Bad offset %x\n", (int)offset);
+        return 0;
     }
 }
 
@@ -295,9 +296,9 @@ static const VMStateDescription vmstate_intc = {
         VMSTATE_UINT32(cpr_prc0, IntcState),
         VMSTATE_UINT32(iackr_prc0, IntcState),
         VMSTATE_UINT32(eoir_prc0, IntcState),
-        VMSTATE_UINT32_ARRAY(ccsir, IntcState, 2),
+        VMSTATE_UINT32_ARRAY(sscir, IntcState, 2),
         VMSTATE_UINT32_ARRAY(pri, IntcState, MAX_IRQ),
-        VMSTATE_UINT8_ARRAY(asserted_int, IntcState, MAX_IRQ+1),
+        VMSTATE_UINT8_ARRAY(asserted_int, IntcState, MAX_IRQ),
         VMSTATE_END_OF_LIST()
     }
 };
@@ -305,8 +306,8 @@ static const VMStateDescription vmstate_intc = {
 static void intc_init(Object *obj)
 {
     IntcState *s = INTC(obj);
-    SysBusDevice *d = SYS_BUS_DEVICE(dev);
-    IntcState *s = INTC(dev);
+    SysBusDevice *d = SYS_BUS_DEVICE(obj);
+    DeviceState *dev = DEVICE(obj);
 
     memory_region_init_io(&s->mem, obj, &intc_ops, s, "mpc5675-intc", 0x4000);
     sysbus_init_mmio(d, &s->mem);
