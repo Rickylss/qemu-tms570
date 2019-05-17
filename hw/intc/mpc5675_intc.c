@@ -51,7 +51,7 @@ typedef struct IntcState {
     uint32_t iackr_prc1; /* INTC Interrupt Acknowledge Register for Processor 1 */
     uint32_t eoir_prc0; /* INTC End of Interrupt Register for Processor 0 */
     uint32_t eoir_prc1; /* INTC End of Interrupt Register for Processor 1 */
-    uint32_t sscir[2]; /* INTC Software Set/Clear Interrupt Register */
+    uint32_t sscir[8]; /* INTC Software Set/Clear Interrupt Register */
     uint32_t pri[337]; /* INTC Priority Select Registers */
 
     uint8_t asserted_int[337];
@@ -137,15 +137,12 @@ static void intc_update_vectors(IntcState *s)
 static void intc_set_software_irq(IntcState *s)
 {
     /* get asserted software-settable interrupt irq */
-    for (int i = 0; i < 2; i++)
+    for (int i = 0; i < 8; i++)
     {
-        for (int j = 0; j < 4; j++)
-        {
-            if(s->sscir[i] & (0x1 << (3-j)*8)) {
-                s->asserted_int[i*4 + j] = 1;
-            } else {
-                s->asserted_int[i*4 + j] = 0;
-            }
+        if (s->sscir[i] & 0x1) {
+            s->asserted_int[i] = 1;
+        } else {
+            s->asserted_int[i] = 0;
         }
     }
 
@@ -157,17 +154,21 @@ static void intc_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
     IntcState *s = opaque;
 
     if ( offset >= 0x20 && offset < 0x28) { // SSCIRn
-        int index = (offset - 0x20) >> 2;
-        s->sscir[index] &= ~(val & 0x01010101);
-        s->sscir[index] |= (val >> 1) & 0x01010101;
+        int index = offset - 0x20;
+        if (index < 8)
+        {
+            s->sscir[index] &= ~(val & 0x1);
+            s->sscir[index] |= (val >> 1) & 0x1;
+        }
         intc_set_software_irq(s);
     }
 
     if (offset >= 0x40 && offset < 0x0191) { // PSRn
         int index = offset - 0x40;
         if (index < 337) {
-            s->pri[index] = val & 0xff;
+            s->pri[index] = val & 0xf;
         }
+        intc_set_software_irq(s);
     }
 
     switch (offset)
@@ -204,8 +205,17 @@ static uint64_t intc_read(void *opaque, hwaddr offset, unsigned size)
     IntcState *s = opaque;
 
     if ( offset >= 0x20 && offset < 0x28) { // SSCIRn
+        int cir_index;
         int index = (offset - 0x20) >> 2;
-        return s->sscir[index] & 0x01010101; //SETx bit is always read as 0
+        int start_index = index * 4;
+        uint32_t ret;
+        for (int i = 0; i < 4; i++) {
+            cir_index = start_index + i;
+            if (cir_index < 8) {
+                ret += s->pri[cir_index] << 8*(3-i);
+            }
+        }
+        return ret & 0x01010101;
     }
 
     if (offset >= 0x40 && offset < 0x0194) { // PSRn
@@ -298,7 +308,7 @@ static const VMStateDescription vmstate_intc = {
         VMSTATE_UINT32(cpr_prc0, IntcState),
         VMSTATE_UINT32(iackr_prc0, IntcState),
         VMSTATE_UINT32(eoir_prc0, IntcState),
-        VMSTATE_UINT32_ARRAY(sscir, IntcState, 2),
+        VMSTATE_UINT32_ARRAY(sscir, IntcState, 8),
         VMSTATE_UINT32_ARRAY(pri, IntcState, MAX_IRQ),
         VMSTATE_UINT8_ARRAY(asserted_int, IntcState, MAX_IRQ),
         VMSTATE_END_OF_LIST()

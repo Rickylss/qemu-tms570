@@ -258,7 +258,7 @@ static const TypeInfo pit_info = {
     .class_init    = pit_class_init,
 };
 
-static void pl031_register_types(void)
+static void pit_register_types(void)
 {
     type_register_static(&pit_info);
 }
