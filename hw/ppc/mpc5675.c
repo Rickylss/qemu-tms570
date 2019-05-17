@@ -235,6 +235,9 @@ static void ppc_5675board_init(MachineState *machine)
         pic[n] = qdev_get_gpio_in(dev, n);
     }
 
+    dev = sysbus_create_varargs("mpc5675-pit", 0xc3ff0000,
+                                pic[59], pic[60], pic[61], pic[127], NULL);
+    
     // /* intc1 external interrupt ivor4 */
     // dev = sysbus_create_varargs("mpc5675-intc", 0x8ff48000,
     //                             irq[1], NULL);

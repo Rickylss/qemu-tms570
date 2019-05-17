@@ -127,6 +127,8 @@ static void intc_update_vectors(IntcState *s)
         s->iackr_prc0 += s->entry_size * irq;
 
         qemu_irq_raise(s->irq);
+
+        s->asserted_int[irq] = 0;
     }
 
     qemu_irq_lower(s->irq);
