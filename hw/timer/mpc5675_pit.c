@@ -66,20 +66,20 @@ static uint64_t pit_read(void *opaque, hwaddr offset,
     case 0x114:
     case 0x124:
     case 0x134:
-        index = (offset - 0x100) >> 4;
+        index = (offset - 0x104) >> 4;
         s->cval[index] = ptimer_get_count(s->timer[index]); //get current time
         return s->cval[index];
     case 0x108: //TCTRL
     case 0x118:
     case 0x128:
     case 0x138:
-        index = (offset - 0x100) >> 4;
+        index = (offset - 0x108) >> 4;
         return s->tctrl[index];
     case 0x10c: //TFLG
     case 0x11c:
     case 0x12c:
     case 0x13c:
-        index = (offset - 0x100) >> 4;
+        index = (offset - 0x10c) >> 4;
         return s->tflg[index];
     default:
         return 0;
@@ -149,7 +149,7 @@ static void pit_write(void * opaque, hwaddr offset,
     case 0x118:
     case 0x128:
     case 0x138:
-        index = (offset - 0x100) >> 4;
+        index = (offset - 0x108) >> 4;
         s->tctrl[index] = val & 0x3;
         change_timer_state(s, index);
         pit_update(s);//update interrupt
@@ -158,7 +158,7 @@ static void pit_write(void * opaque, hwaddr offset,
     case 0x11c:
     case 0x12c:
     case 0x13c:
-        index = (offset - 0x100) >> 4;
+        index = (offset - 0x10c) >> 4;
         s->tflg[index] &= ~(val & 0x1);
         pit_update(s);//update interrupt
         break;
