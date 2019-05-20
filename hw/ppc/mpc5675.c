@@ -147,6 +147,7 @@ static void ppc_5675board_init(MachineState *machine)
     MemoryRegion *ebi = g_new(MemoryRegion, 1);
     MemoryRegion *sram = g_new(MemoryRegion, 1);
     MemoryRegion *dram = g_new(MemoryRegion, 1);
+    SysBusDevice *busdev;
     CPUPPCState *env = NULL;
     uint64_t loadaddr;
     int kernel_size = 0;
@@ -158,7 +159,7 @@ static void ppc_5675board_init(MachineState *machine)
     // int dt_size;
     int i;
     CPUPPCState *firstenv = NULL;
-    DeviceState *dev;
+    DeviceState *dev, *stm;
     qemu_irq irq[2];
     qemu_irq pic[337];
 
@@ -238,8 +239,18 @@ static void ppc_5675board_init(MachineState *machine)
     dev = sysbus_create_varargs("mpc5675-pit", 0xc3ff0000,
                                 pic[59], pic[60], pic[61], pic[127], NULL);
 
-    dev = sysbus_create_varargs("mpc5675-stm", 0xfff3c000,
-                            pic[30], pic[31], pic[32], pic[33], NULL);
+    stm = qdev_create(NULL, "mpc5675-stm");
+    qdev_prop_set_uint32(stm, "freq_base", freq_base);
+    qdev_init_nofail(stm);
+    busdev = SYS_BUS_DEVICE(stm);
+    sysbus_mmio_map(busdev, 0, 0xfff3c000);
+
+    for (int i = 30; i < 34; i++)
+    {
+        sysbus_connect_irq(busdev, i, cpu_irq[i]);
+    }
+
+
     
     // /* intc1 external interrupt ivor4 */
     // dev = sysbus_create_varargs("mpc5675-intc", 0x8ff48000,

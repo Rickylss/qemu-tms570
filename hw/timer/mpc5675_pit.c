@@ -43,6 +43,7 @@ static void pit_update(PitState *s)
     {
         irq = (s->tflg[i] & 0x1) && (s->tctrl[i] & 0x2);
         qemu_set_irq(s->irq[i], irq);
+        s->tflg &= ~ 0x1;
     }
 }
 
