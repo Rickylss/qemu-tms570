@@ -13,26 +13,25 @@
 #include "migration/vmstate.h"
 
 /* itimer.c */
-typedef struct ptimer_state ptimer_state;
-typedef void (*ptimer_cb)(void *opaque);
+typedef struct itimer_state itimer_state;
+typedef void (*itimer_cb)(void *opaque);
 
-ptimer_state *ptimer_init(QEMUBH *bh);
-void ptimer_set_period(ptimer_state *s, int64_t period);
-void ptimer_set_freq(ptimer_state *s, uint32_t freq);
-uint64_t ptimer_get_limit(ptimer_state *s);
-void ptimer_set_limit(ptimer_state *s, uint64_t limit, int reload);
-uint64_t ptimer_get_count(ptimer_state *s);
-void ptimer_set_count(ptimer_state *s, uint64_t count);
-void ptimer_run(ptimer_state *s, int oneshot);
-void ptimer_stop(ptimer_state *s);
+itimer_state *itimer_init(QEMUBH *bh);
+void itimer_set_period(itimer_state *s, int64_t period);
+void itimer_set_freq(itimer_state *s, uint32_t freq);
+uint64_t itimer_get_count(itimer_state *s);
+void itimer_set_count(itimer_state *s, uint64_t count);
+void itimer_run(itimer_state *s);
+void itimer_stop(itimer_state *s);
+void itimer_set_compare(itimer_state *s, uint32_t compare);
 
-extern const VMStateDescription vmstate_ptimer;
+extern const VMStateDescription vmstate_itimer;
 
-#define VMSTATE_PTIMER(_field, _state) \
-    VMSTATE_STRUCT_POINTER_V(_field, _state, 1, vmstate_ptimer, ptimer_state)
+#define VMSTATE_ITIMER(_field, _state) \
+    VMSTATE_STRUCT_POINTER_V(_field, _state, 1, vmstate_itimer, itimer_state)
 
-#define VMSTATE_PTIMER_ARRAY(_f, _s, _n)                                \
+#define VMSTATE_ITIMER_ARRAY(_f, _s, _n)                                \
     VMSTATE_ARRAY_OF_POINTER_TO_STRUCT(_f, _s, _n, 0,                   \
-                                       vmstate_ptimer, ptimer_state)
+                                       vmstate_itimer, itimer_state)
 
 #endif
