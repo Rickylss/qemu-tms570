@@ -248,7 +248,7 @@ static void ppc_5675board_init(MachineState *machine)
 
     for (int i = 30; i < 34; i++)
     {
-        sysbus_connect_irq(busdev, i, pic[i]);
+        sysbus_connect_irq(busdev, i-30, pic[i]);
     }
 
 

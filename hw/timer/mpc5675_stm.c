@@ -215,6 +215,8 @@ static void stm_timer_tick(void *opaque)
 
 static void stm_rest(DeviceState *d)
 {
+    StmState *s = STM(d);
+
     s->freq_base = 50 * 1000 * 1000;
 }
 
@@ -235,6 +237,8 @@ static void stm_init(Object *obj)
     
     bh = qemu_bh_new(stm_timer_tick, s);
     s->timer = itimer_init(bh);
+
+    s->freq_base = 50 * 1000 * 1000;
     freq = s->freq_base / (((s->stm_cr >> 8) & 0xff) + 1);
     itimer_set_freq(s->timer, freq);
 }
