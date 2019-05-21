@@ -239,6 +239,7 @@ static void ppc_5675board_init(MachineState *machine)
     dev = sysbus_create_varargs("mpc5675-pit", 0xc3ff0000,
                                 pic[59], pic[60], pic[61], pic[127], NULL);
 
+    uint32_t freq_base = 50 * 1000 * 1000; // 5MHz
     stm = qdev_create(NULL, "mpc5675-stm");
     qdev_prop_set_uint32(stm, "freq_base", freq_base);
     qdev_init_nofail(stm);
@@ -247,7 +248,7 @@ static void ppc_5675board_init(MachineState *machine)
 
     for (int i = 30; i < 34; i++)
     {
-        sysbus_connect_irq(busdev, i, cpu_irq[i]);
+        sysbus_connect_irq(busdev, i, pic[i]);
     }
 
 

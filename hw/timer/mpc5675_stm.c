@@ -76,7 +76,6 @@ static void update_channel(StmState *s)
 static void update_compare(StmState *s)
 {
     uint32_t cmp[4];
-    uint32_t cmp[4];
     uint32_t mini, temp;
 
     memcpy(cmp, s->stm_cmp, sizeof(cmp));
@@ -210,10 +209,13 @@ static void stm_timer_tick(void *opaque)
     s->stm_cnt = itimer_get_count(s->timer);
 
     update_channel(s);
-    //ptimer_set_count(s->timer[index], s->ldval[index]);
-    //ptimer_run(s->timer[index], 1);
 
     stm_update(s);
+}
+
+static void stm_rest(DeviceState *d)
+{
+    s->freq_base = 50 * 1000 * 1000;
 }
 
 static void stm_init(Object *obj)
@@ -223,11 +225,14 @@ static void stm_init(Object *obj)
     QEMUBH *bh;
     int freq;
 
-    memory_region_init_io(&s->mem, obj, &pit_ops, s, "mpc5675-stimer", 0x4000);
+    memory_region_init_io(&s->mem, obj, &stm_ops, s, "mpc5675-stimer", 0x4000);
     sysbus_init_mmio(dev, &s->mem);
 
-    sysbus_init_irq(dev, &s->irq[i]);
-
+    for (int i = 0; i < 4; i++)
+    {
+        sysbus_init_irq(dev, &s->irq[i]);
+    }
+    
     bh = qemu_bh_new(stm_timer_tick, s);
     s->timer = itimer_init(bh);
     freq = s->freq_base / (((s->stm_cr >> 8) & 0xff) + 1);
@@ -239,12 +244,11 @@ static const VMStateDescription vmstate_stm = {
     .version_id = 1,
     .minimum_version_id = 1,
     .fields = (VMStateField[]) {
-        VMSTATE_UINT32(freq_base, PitState),
-        VMSTATE_UINT32(pitmcr, PitState),
-        VMSTATE_UINT32_ARRAY(ldval, PitState, 4),
-        VMSTATE_UINT32_ARRAY(cval, PitState, 4),
-        VMSTATE_UINT32_ARRAY(tctrl, PitState, 4),
-        VMSTATE_UINT32_ARRAY(tflg, PitState, 4),
+        VMSTATE_UINT32(stm_cr, StmState),
+        VMSTATE_UINT32(stm_cnt, StmState),
+        VMSTATE_UINT32_ARRAY(stm_ccr, StmState, 4),
+        VMSTATE_UINT32_ARRAY(stm_cir, StmState, 4),
+        VMSTATE_UINT32_ARRAY(stm_cmp, StmState, 4),
         VMSTATE_END_OF_LIST()
     }
 };
@@ -258,6 +262,7 @@ static void stm_class_init(ObjectClass *klass, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(klass);
 
+    dc->reset = stm_rest;
     dc->props = stm_properties;
     dc->vmsd = &vmstate_stm;
 }

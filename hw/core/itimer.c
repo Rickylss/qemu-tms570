@@ -27,14 +27,14 @@ struct itimer_state
 };
 
 /* Use a bottom-half routine to avoid reentrancy issues.  */
-static void itimer_trigger(ptimer_state *s)
+static void itimer_trigger(itimer_state *s)
 {
     if (s->bh) {
         replay_bh_schedule_event(s->bh);
     }
 }
 
-static void itimer_reload(ptimer_state *s, int index)
+static void itimer_reload(itimer_state *s)
 {
     uint32_t period_frac = s->period_frac;
     uint64_t period = s->period;
@@ -80,7 +80,7 @@ static void itimer_tick(void *opaque)
     itimer_reload(s);
 }
 
-uint64_t ptimer_get_count(ptimer_state *s)
+uint64_t itimer_get_count(itimer_state *s)
 {
     uint64_t counter;
     uint64_t delta = s->compare - s->delta;
@@ -170,7 +170,7 @@ void itimer_run(itimer_state *s)
 
 /* Pause a timer.  Note that this may cause it to "lose" time, even if it
    is immediately restarted.  */
-void itimer_stop(ptimer_state *s)
+void itimer_stop(itimer_state *s)
 {
     if (!s->enabled)
         return;
