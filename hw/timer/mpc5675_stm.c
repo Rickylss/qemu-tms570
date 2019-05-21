@@ -17,6 +17,12 @@
 #define TYPE_STM "mpc5675-stm"
 #define STM(obj) OBJECT_CHECK(StmState, (obj), TYPE_STM)
 
+typedef struct CmpList
+{
+    uint32_t index;
+    uint32_t value;
+} CmpList;
+
 typedef struct StmState {
     /*< private >*/
     SysBusDevice parent_obj;
@@ -34,6 +40,7 @@ typedef struct StmState {
     uint32_t stm_cmp[4];  //STM Channel 0~3 Compare Register 
 
     uint32_t current_cmp;
+    CmpList current_cmplist[4];
 
     qemu_irq irq[4];
 } StmState;
@@ -52,21 +59,45 @@ static void stm_update(StmState *s)
 
 static void update_channel(StmState *s)
 {
-    uint32_t n;
-    uint32_t enabled_cmp[4];
-
-    for (int i = 0; i < 4; i++)
-    {
-        if (s->stm_ccr[i] & 0x1)
-        {
-            enabled_cmp[i] = s->stm_cmp[i];
+    /* set next channel */
+    for (int i = 0; i < 4; i++) {
+        if (s->stm_ccr[i] & 0x1) {
+            if (s->current_cmplist[i].value < s->stm_cnt) {
+                continue;
+            } else {
+                s->current_cmp = s->current_cmplist[i].index;
+            }
         }
-        
     }
-    
 
-    s->current_cmp = n;
     itimer_set_compare(s->timer, s->stm_cmp[s->current_cmp]);
+}
+
+static void update_compare(StmState *s)
+{
+    uint32_t cmp[4];
+    uint32_t cmp[4];
+    uint32_t mini, temp;
+
+    memcpy(cmp, s->stm_cmp, sizeof(cmp));
+
+    /* update current compare list */
+    for (int i = 0; i < 3; i++) {
+        mini = i;
+        for (int j = i+1; j < 4; j++) {
+            if (cmp[mini] > cmp[j]){
+                mini = j;
+            }
+        }
+        temp = cmp[i];
+        cmp[i] = cmp[mini];
+        cmp[mini] = temp;
+
+        s->current_cmplist[i].index = mini;
+        s->current_cmplist[i].value = cmp[i];
+    }
+
+    update_channel(s);
 }
 
 static uint64_t stm_read(void *opaque, hwaddr offset,
@@ -156,7 +187,7 @@ static void stm_write(void * opaque, hwaddr offset,
     case 0x48:
         index = (offset - 0x18) >> 4;
         s->stm_cmp[index] = val;
-        update_channel(s);
+        update_compare(s);
         break;
     default:
         break;
@@ -175,6 +206,8 @@ static void stm_timer_tick(void *opaque)
 
     // causes an interrupt request;
     s->stm_cir[s->current_cmp] = 0x1;
+
+    s->stm_cnt = itimer_get_count(s->timer);
 
     update_channel(s);
     //ptimer_set_count(s->timer[index], s->ldval[index]);
