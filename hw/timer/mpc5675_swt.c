@@ -255,6 +255,11 @@ static void swt_reset(DeviceState *d)
     ptimer_set_freq(s->timer, 16 * 1000 * 1000);
     ptimer_set_count(s->timer, 0x0003fde0);
     ptimer_run(s->timer, 1);
+    /* 
+     * system reset will not reset the irq state.
+     * so we need do it manually
+     */
+    qemu_irq_lower(s->exception);
 }
 
 static void swt_class_init(ObjectClass *oc, void *data)
