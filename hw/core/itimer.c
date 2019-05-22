@@ -45,7 +45,7 @@ static void itimer_reload(itimer_state *s)
         delta = 0xffffffff;//rolls over at 0xffffffff to 0x00000000
     }
     if (delta == 0 || s->period == 0) {
-        fprintf(stderr, "Timer with period zero, disabling\n");
+        fprintf(stderr, "ITimer with period zero, disabling\n");
         s->enabled = 0;
         return;
     }
@@ -158,7 +158,7 @@ void itimer_run(itimer_state *s)
     bool was_disabled = !s->enabled;
 
     if (was_disabled && s->period == 0) {
-        fprintf(stderr, "Timer with period zero, disabling\n");
+        fprintf(stderr, "ITimer with period zero, disabling\n");
         return;
     }
     s->enabled = 1;

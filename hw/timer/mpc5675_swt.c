@@ -110,7 +110,7 @@ static uint64_t swt_read(void *opaque, hwaddr offset,
     }
 }
 
-inline void gen_code(uint32_t key)
+inline static uint32_t gen_code(uint32_t key)
 {
     return (17 * key + 3) % 0x10000;
 }
@@ -242,13 +242,6 @@ static void swt_init(Object *obj)
     bh = qemu_bh_new(swt_timer_tick, s);
     s->timer = ptimer_init(bh);
 
-    s->swt_cr = 0xff00011b;
-    s->swt_to = 0x0003fde0;
-
-    /* Default to IRCOSC 16MHz internal RC oscillator */
-    ptimer_set_freq(s->timer, 16 * 1000 * 1000);
-    ptimer_set_count(s->timer, 0x0003fde0);
-    ptimer_run(s->timer, 1);
 }
 
 static void swt_reset(DeviceState *d)
@@ -258,8 +251,10 @@ static void swt_reset(DeviceState *d)
     s->swt_cr = 0xff00011b;
     s->swt_to = 0x0003fde0;
 
+    /* Default to IRCOSC 16MHz internal RC oscillator */
+    ptimer_set_freq(s->timer, 16 * 1000 * 1000);
     ptimer_set_count(s->timer, 0x0003fde0);
-    ptimer_run(s->timer, 0);
+    ptimer_run(s->timer, 1);
 }
 
 static void swt_class_init(ObjectClass *oc, void *data)
