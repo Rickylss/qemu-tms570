@@ -161,6 +161,7 @@ static void ppc_5675board_init(MachineState *machine)
     CPUPPCState *firstenv = NULL;
     DeviceState *dev, *stm;
     qemu_irq irq[2];
+    qemu_irq reset_exc[2];
     qemu_irq pic[337];
 
     /* Setup CPUs */
@@ -183,6 +184,7 @@ static void ppc_5675board_init(MachineState *machine)
         }
 
         irq[i] = env->irq_inputs[PPCE200_INPUT_INT];
+        reset_exc[i] = env->irq_inputs[PPCE200_INPUT_RESET_SYS];
 
         ppc_booke_timers_init(cpu, 400000000, PPC_TIMER_BOOKE);
 
@@ -251,6 +253,9 @@ static void ppc_5675board_init(MachineState *machine)
         sysbus_connect_irq(busdev, i-30, pic[i]);
     }
 
+    /* intc0 external interrupt system reset */
+    dev = sysbus_create_varargs("mpc5675-swt", 0xfff38000,
+                                reset_exc[0], pic[28], NULL);
 
     
     // /* intc1 external interrupt ivor4 */
