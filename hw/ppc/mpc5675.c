@@ -230,6 +230,8 @@ static void ppc_5675board_init(MachineState *machine)
     memory_region_allocate_system_memory(dram, NULL, "mpc5675.dram", dram_size);
     memory_region_add_subregion(address_space_mem, 0x60000000, dram);
 
+    machine->ram_size = loadaddr + ebi_size + sram_size + dram_size;
+
     /* intc0 external interrupt ivor4 */
     dev = sysbus_create_varargs("mpc5675-intc", 0xfff48000,
                                 irq[0], NULL);
@@ -257,6 +259,16 @@ static void ppc_5675board_init(MachineState *machine)
     dev = sysbus_create_varargs("mpc5675-swt", 0xfff38000,
                                 reset_exc[0], pic[28], NULL);
 
+    /* LINFlexD 0~3 */
+    deb = sysbus_create_varargs("LINFlexD", 0xffe40000,
+                                pic[79], pic[80], pic[81], NULL);
+    deb = sysbus_create_varargs("LINFlexD", 0xffe44000,
+                                pic[99], pic[100], pic[101], NULL);
+    deb = sysbus_create_varargs("LINFlexD", 0xffe48000,
+                                pic[119], pic[120], pic[121], NULL);
+    deb = sysbus_create_varargs("LINFlexD", 0xffe4c000,
+                                pic[122], pic[123], pic[124], NULL);
+
     
     // /* intc1 external interrupt ivor4 */
     // dev = sysbus_create_varargs("mpc5675-intc", 0x8ff48000,
@@ -266,21 +278,6 @@ static void ppc_5675board_init(MachineState *machine)
     //     pic[n] = qdev_get_gpio_in(dev, n);
     // }
 
-    /*
-     * Smart firmware defaults ahead!
-     *
-     * We follow the following table to select which payload we execute.
-     *
-     *  -kernel | -bios | payload
-     * ---------+-------+---------
-     *     N    |   Y   | u-boot
-     *     N    |   N   | u-boot
-     *     Y    |   Y   | u-boot
-     *     Y    |   N   | kernel
-     *
-     * This ensures backwards compatibility with how we used to expose
-     * -kernel to users but allows them to run through u-boot as well.
-     */
     if (bios_name == NULL) {
         if (machine->kernel_filename) {
             bios_name = machine->kernel_filename;
@@ -304,8 +301,12 @@ static void ppc_5675board_init(MachineState *machine)
         kernel_size = load_uimage(filename, &bios_entry, &loadaddr, NULL,
                                   NULL, NULL);
         if (kernel_size < 0) {
-            fprintf(stderr, "qemu: could not load firmware '%s'\n", filename);
-            exit(1);
+            int appsize=-1;
+            appsize = load_image_targphys(filename, 0, machine->ram_size);
+            if(appsize < 0){
+                fprintf(stderr, "qemu: could not load firmware '%s'\n", filename);
+                exit(1);
+            }
         }
     }
     g_free(filename);
