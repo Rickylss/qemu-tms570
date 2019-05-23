@@ -17,7 +17,7 @@ struct itimer_state
     QEMUBH *bh;
     QEMUTimer *timer;
 
-    uint8_t enabled; /* 0 = disabled, 1 = periodic, 2 = oneshot.  */
+    uint8_t enabled; /* 0 = disabled, 1 = poll, 2 = reset.  */
     uint64_t delta;
     uint32_t period_frac;
     int64_t period;
@@ -76,8 +76,12 @@ static void itimer_tick(void *opaque)
 {
     itimer_state *s = (itimer_state *)opaque;
     itimer_trigger(s);
-    s->delta = s->compare;
-    itimer_reload(s);
+    
+    if (s->enabled == 1) {
+        s->delta = s->compare;
+    } 
+
+    ptimer_reload(s);
 }
 
 uint64_t itimer_get_count(itimer_state *s)
@@ -153,7 +157,7 @@ void itimer_set_count(itimer_state *s, uint64_t count)
     }
 }
 
-void itimer_run(itimer_state *s)
+void itimer_run(itimer_state *s, int reset)
 {
     bool was_disabled = !s->enabled;
 
@@ -161,7 +165,7 @@ void itimer_run(itimer_state *s)
         fprintf(stderr, "ITimer with period zero, disabling\n");
         return;
     }
-    s->enabled = 1;
+    s->enabled = reset ? 2 : 1;
     if (was_disabled) {
         s->next_event = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
         itimer_reload(s);

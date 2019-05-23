@@ -21,7 +21,7 @@ void itimer_set_period(itimer_state *s, int64_t period);
 void itimer_set_freq(itimer_state *s, uint32_t freq);
 uint64_t itimer_get_count(itimer_state *s);
 void itimer_set_count(itimer_state *s, uint64_t count);
-void itimer_run(itimer_state *s);
+void itimer_run(itimer_state *s, int reset);
 void itimer_stop(itimer_state *s);
 void itimer_set_compare(itimer_state *s, uint32_t compare);
 

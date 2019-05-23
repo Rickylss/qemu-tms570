@@ -149,7 +149,7 @@ static void stm_write(void * opaque, hwaddr offset,
         int freq = s->freq_base / (((s->stm_cr >> 8) & 0xff) + 1);
         itimer_set_freq(s->timer, freq);
         if (s->stm_cr & 0x1) {   /* Counter is enabled */
-            itimer_run(s->timer);
+            itimer_run(s->timer, 0);
         } else {
             itimer_stop(s->timer);
         }
@@ -258,7 +258,7 @@ static const VMStateDescription vmstate_stm = {
 };
 
 static Property stm_properties[] = {
-    DEFINE_PROP_UINT32("freq_base", StmState, freq_base, 0),
+    DEFINE_PROP_UINT32("freq_base", StmState, freq_base, 50 * 1000 * 1000),
     DEFINE_PROP_END_OF_LIST(),
 };
 
