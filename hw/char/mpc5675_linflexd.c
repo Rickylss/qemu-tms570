@@ -16,6 +16,10 @@
 #define TYPE_LINFLEXD "LINFlexD"
 #define LINFLEXD(obj) OBJECT_CHECK(LinState, (obj), TYPE_LINFLEXD)
 
+#define UART_RXI_MASK 0x4
+#define UART_TXI_MASK 0x2
+#define UART_ERR_MASK 0xc1a8
+
 #define TDFLTFC 0x7 << 13
 #define RDFLRFC 0x7 << 10
 #define RFBM 1 << 9
@@ -33,6 +37,11 @@ typedef enum {
     INIT,
     NORMAL
 } OPMODE;
+
+typedef enum {
+    LIN,
+    UART
+} MODE;
 
 typedef struct LinState {
     SysBusDevice parent_obj;
@@ -58,8 +67,18 @@ typedef struct LinState {
     uint32_t lin_cfr;
     uint32_t lin_cr2;
     uint32_t b_idr;
-    uint32_t b_drl;
+    union {
+        uint32_t r;
+        struct {
+            uint8_t bdr[4];
+        } b;
+        struct {
+            uint16_t bdr[2];
+        } w;
+    } b_drl;
+    int tx_count;
     uint32_t b_drm;
+    int rx_count;
     uint32_t if_er;
     uint32_t if_mi;
     uint32_t if_mr;
@@ -70,10 +89,12 @@ typedef struct LinState {
     uint32_t dma_txe;
     uint32_t dma_rxe;
 
-    uint32_t data_count;
-    uint32_t receive_byte_nu;
+    uint32_t read_fifo[4];
+    int read_pos;
+    int read_count;
 
     OPMODE operation_mode;
+    MODE mode;
     CharDriverState *chr;
 
     qemu_irq irq[3];
@@ -81,21 +102,76 @@ typedef struct LinState {
 
 static void LINFlexD_update_irq(LinState *s)
 {
-    /*
-     * An interrupt is generated if this bit is set and one of the following is true:
-     * 1. LINFlexD is in LIN mode and LINSR[DBEF] is set.
-     * 2. LINFlexD is in UART mode and UARTSR[TO] is set.
+    if (s->mode == UART)
+    {
+        uint32_t rxi_irq = UART_RXI_MASK & s->lin_ier & s->uart_sr;
+        uint32_t txi_irq = UART_TXI_MASK & s->lin_ier & s->uart_sr;
+        uint32_t err_irq = UART_ERR_MASK & s->lin_ier & s->uart_sr;
+
+        //RXI
+        qemu_set_irq(s->irq[0], rxi_irq);
+
+        //TXI
+        qemu_set_irq(s->irq[1], txi_irq);
+
+        //ERR
+        qemu_set_irq(s->irq[2], err_irq);
+
+    }
+    
+}
+
+static void update_baudrate(LinState *s)
+{
+    double lfdiv;
+    int baudrate
+    
+    lfdiv = (s->lin_ibrr & 0xfffff) + (s->lin_fbrr & 0xf) / 16;
+
+    if (lfdiv >= 1.5) {
+        baudrate = (s->ipg_clock_lin * 1000 * 1000) / (16 * lfdiv);
+    } else {
+        fprintf(stderr, "LFDIV must be greater than or equal to 1.5d");
+    }
+    
+    /* 
+     * The timeout counter is clocked with the baud rate  
+     * clock prescaled by a hard-wired scaling factor of 16
      */
-    qemu_irq_lower(s->irq[2]);
-    if (s->lin_ier & 0x8) {
-        if (((s->lin_sr & 0x8) && ~(s->uart_sr & 0x1)) || // buffer empty interrupt
-            ((s->uart_sr & 0x8) && (s->uart_sr & 0x1))) { // timeout interrupt
-            qemu_irq_raise(s->irq[2]);
+    itimer_set_freq(s->tiemr, baudrate/16);
+}
+
+static void get_txrx_count(LinState *s)
+{
+    if (s->uart_cr & RFBM) {                    //FIFO mode
+        s->rx_count = (s->uart_cr & RDFLRFC) >> 10; 
+    } else {                                    //buffer mode
+        s->rx_count = ((s->uart_cr & 0xc00) >> 10) + 1; 
+        if ((s-uart_cr & WL1) && (mask == 1 || mask == 3)) {
+            fprintf(stderr, "WL is configured as halfword, value invalid");
         }
     }
 
+    if (s->uart_cr & TFBM) {                    //FIFO mode
+        s->tx_count = (s->uart_cr & TDFLTFC) >> 13; 
+    } else {                                    //buffer mode
+        s->tx_count = ((s->uart_cr & 0x6000) >> 13) + 1; 
+        if ((s-uart_cr & WL1) && (mask == 1 || mask == 3)) {
+            fprintf(stderr, "WL is configured as halfword, value invalid");
+        }
+    }
+}
 
-
+static void LINFlexD_switch_operating_mode(LinState *s)
+{
+    if ((s->lin_cr1 & 0x3) == 0x2) {
+        s->operation_mode = SLEEP;
+    } else if((s->lin_cr1 & 0x3) == 0x0) {
+        s->operation_mode = NORMAL;
+    } else {
+        s->operation_mode = INIT;
+        s->uart_sr &= ~0x200;
+    }
 }
 
 static uint64_t LINFlexD_read(void *opaque, hwaddr offset,
@@ -139,8 +215,23 @@ static uint64_t LINFlexD_read(void *opaque, hwaddr offset,
     case 0x34: /* BIDR */
         return s->b_idr;
     case 0x38: /* BDRL */
-        return s->b_drl;
+        return s->b_drl.r;
     case 0x3c: /* BDRM */
+        if (s->mode == UART)
+        {
+            s->uart_sr &= ~DRFRFE;
+            c = s->read_fifo[s->read_pos];
+            if (s->read_count > 0) {
+                s->read_count--;
+                if (++s->read_pos == s->rx_count)
+                    s->read_pos = 0;
+            }
+            LINFlexD_update_irq(s);
+            if (s->chr) {
+                qemu_chr_accept_input(s->chr);
+            }
+            return c;
+        }
         return s->b_drm;
     case 0x40: /* IFER */
         return s->if_er;
@@ -166,37 +257,6 @@ static uint64_t LINFlexD_read(void *opaque, hwaddr offset,
     }
 }
 
-static void LINFlexD_switch_operating_mode(LinState *s)
-{
-    if ((s->lin_cr1 & 0x3) == 0x2) {
-        s->operation_mode = SLEEP;
-    } else if((s->lin_cr1 & 0x3) == 0x0) {
-        s->operation_mode = NORMAL;
-    } else {
-        s->operation_mode = INIT;
-    }
-}
-
-static void update_baudrate(LinState *s)
-{
-    double lfdiv;
-    int baudrate
-    
-    lfdiv = (s->lin_ibrr & 0xfffff) + (s->lin_fbrr & 0xf) / 16;
-
-    if (lfdiv >= 1.5) {
-        baudrate = (s->ipg_clock_lin * 1000 * 1000) / (16 * lfdiv);
-    } else {
-        fprintf(stderr, "LFDIV must be greater than or equal to 1.5d");
-    }
-    
-    /* 
-     * The timeout counter is clocked with the baud rate  
-     * clock prescaled by a hard-wired scaling factor of 16
-     */
-    itimer_set_freq(s->tiemr, baudrate/16);
-}
-
 static void LINFlexD_write(void *opaque, hwaddr offset,
                         uint64_t val, unsigned size)
 {
@@ -210,6 +270,59 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
         }
     }
 
+    /* BDRL */
+    if (offset >= 0x38 && offset < 0x3c) {
+        int index = (offset - 0x38);
+
+        if (s->mode == UART) {                                  //UART mode
+            if (s->uart_cr & TXEN) {                            //open tx
+                if (s->uart_cr & TFBM && index == 0) {          //FIFO mode
+                    if (s->uart_cr & WL1) {                     //Halfword
+                        s->b_drl.w.bdr[0] = val & 0xffff;
+                        do {
+                            qemu_chr_fe_write(s->chr, s->b_drl.b.bdr, 2);
+                        } while (s->tx_count--);
+                    } else {                                    //Byte
+                        s->bdrl.b.bdr[0] = val & 0xff;
+                        do {
+                            qemu_chr_fe_write(s->chr, s->b_drl.b.bdr, 1);
+                        } while (s->tx_count--);
+                    }
+                    if (s->tx_count == 0) { //FIFO is full;
+                        s->uart_sr |= DTFTFF;
+                    }
+                    
+                } else if(s->uart_cr & TFBM && index != 0) {    // IPS transfer error
+                    fprintf(stderr, "IPS transfer error");
+                } else {                                        //buffer mode
+                    for (int i=0; i < size; i++) {
+                        if (index + i < 4) {
+                            s->bdrl.b.bdr[index + i] = (val >> i*8) & 0xff;
+                            if (index + i == 0)
+                                s->tx_count = 0;
+                        }
+                    }
+                    if (s->tx_count == 0) {
+                        qemu_chr_fe_write(s->chr, s->b_drl.b.bdr, 4);
+                        s->uart_sr |= DTFTFF; 
+                    }  
+
+                    LINFlexD_update_irq(s);         
+                }
+            }
+
+
+        }
+    }
+
+    /* BDRM */
+    if (offset >= 0x3c && offset < 0x40) {
+        if (s->mode == UART)
+        {
+            fprintf(stderr, "IPS transfer error");
+        }
+    }
+    
     switch (offset) {
     case 0x00: /* LINCR1 */
         if (s->operation_mode == INIT) {
@@ -243,7 +356,12 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
             s->uart_cr |= val & 0x1;
             if (s->uart_cr & 0x1) {
                 s->uart_cr |= val & 0xffce;
+                s->mode = UART;
+                get_txrx_count(s);
+            } else {
+                s->mode = LIN;
             }
+            
         }
 
         if (s->uart_cr & RXEN) {
@@ -299,31 +417,6 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
         s->b_idr &= ~(val & 0x300);
         s->b_idr |= val & 0xfc3f;
         break;
-    case 0x38: /* BDRL */
-        if (s->uart_cr & 0x1) {
-            uint32_t mask;
-            mask = (s->uart_cr & TDFLTFC) >> 13;
-            if (s->uart_cr & RFBM && mask <= 4) {
-                s->b_drl = val & ~(0xffffffff << mask * 8);
-            } else if(mask <= 3) {
-                s->b_drl = val & ~(0xffffffff << (mask+1) * 8); 
-                if ((s-uart_cr & WL1) && (mask == 1 || mask == 3)) {
-                    fprintf(stderr, "WL is configured as halfword, value invalid");
-                }
-            }
-        break;
-    case 0x3c: /* BDRM */
-        if (s->uart_cr & 0x1) {
-            if (s->uart_cr & RFBM) {
-                s->receive_byte_nu = (s->uart_cr & RDFLRFC) >> 10; 
-            } else {
-                s->receive_byte_nu = ((s->uart_cr & 0xc00) >> 10) + 1; 
-                if ((s-uart_cr & WL1) && (mask == 1 || mask == 3)) {
-                    fprintf(stderr, "WL is configured as halfword, value invalid");
-                }
-            }
-        }
-        break;
     case 0x40: /* IFER */
         if (s->operation_mode == INIT) {
             s->if_er = val & 0xff;
@@ -374,55 +467,34 @@ static int LINFlexD_can_receive(void *opaque)
      */
     if ((s->uart_cr & RXEN) && (s->operation_mode == NORMAL))
     {
-        return s->read_count < s->receive_byte_nu;
+        return s->read_count < s->rx_count;
     }
 }
 
 static void LINFlexD_put_fifo(void *opaque, uint32_t value)
 {
-
-    SCIState *s = (SCIState *)opaque;
-
-    s->buff = *buf;
-    sci_update(s);
-    s->flag &= ~SCIFLR_RX_RDY;
-    if (s->buff) {
-        s->flag |= SCIFLR_RX_RDY; 
-    }
-
     LinState *s = (LinState *)opaque;
     int slot;
 
     slot = s->read_pos + s->read_count;
-    if (slot >= 16)
-        slot -= 16;
+    if (slot >= s->rx_count)
+        slot -= s->rx_count;
     s->read_fifo[slot] = value;
     s->read_count++;
     s->uart_sr &= ~DRFRFE;
-    if (!(s->lcr & 0x10) || s->read_count == 16) {
-        s->flags |= PL011_FLAG_RXFF;
+    if (~(s->uart_cr & RXEN) || s->read_count == s->rx_count) {
+        s->uart_sr |= DRFRFE;
     }
-    if (s->read_count == s->read_trigger) {
-        s->int_level |= PL011_INT_RX;
-        pl011_update(s);
-    }
+    LINFlexD_update_irq(s);
 
-    if (s->uart_cr & RXEN) {
-        itimer_run(s->timer, 1);
-    }
+    itimer_run(s->timer, 1);
 }
 
 static void LINFlexD_receive(void *opaque, const uint8_t *buf, int size)
 {   
+    LinState *s = (LinState *)opaque;
     LINFlexD_put_fifo(opaque, *buf);
-    itimer_set_count(s->timer, 0);
-}
-
-/* TODO */
-static void LINFlexD_event(void *opaque, int event)
-{
-    if (event == CHR_EVENT_BREAK)
-        LINFlexD_put_fifo(opaque, 0x400);
+    s->uart_sr |= 0x200;
 }
 
 static void uart_timeout_tick(void *opaque) 
@@ -460,8 +532,6 @@ static const VMStateDescription vmstate_LINFlexD = {
         VMSTATE_UINT32(lin_cfr, LinState),
         VMSTATE_UINT32(lin_cr2, LinState),
         VMSTATE_UINT32(b_idr, LinState),
-        VMSTATE_UINT32(b_drl, LinState),
-        VMSTATE_UINT32(b_drm, LinState),
         VMSTATE_UINT32(if_er, LinState),
         VMSTATE_UINT32(if_mi, LinState),
         VMSTATE_UINT32(if_mr, LinState),
@@ -503,7 +573,7 @@ static void LINFlexD_realize(DeviceState *dev, Error **errp)
 
     if (s->chr) {
         qemu_chr_add_handlers(s->chr, LINFlexD_can_receive, LINFlexD_receive,
-                              LINFlexD_event, s);
+                              NULL, s);
     }
 }
 
@@ -531,6 +601,7 @@ static void LINFlexD_reset(DeviceState *d)
     itimer_set_compare(s->timer, s->uart_pto);
     
     LINFlexD_switch_operating_mode(s);
+    s->mode = LIN;
 }
 
 static void LINFlexD_class_init(ObjectClass *oc, void *data)
