@@ -252,6 +252,7 @@ static void swt_reset(DeviceState *d)
     s->swt_to = 0x0003fde0;
 
     /* Default to IRCOSC 16MHz internal RC oscillator */
+    ptimer_stop(s->timer);
     ptimer_set_freq(s->timer, 16 * 1000 * 1000);
     ptimer_set_count(s->timer, 0x0003fde0);
     ptimer_run(s->timer, 1);
