@@ -48,7 +48,7 @@ typedef struct LinState {
 
     MemoryRegion iomem;
     // uart timeout counter
-    itimer_state timer;
+    itimer_state *timer;
     // the ipg clock MHz
     uint32_t ipg_clock_lin;
 
@@ -124,7 +124,7 @@ static void LINFlexD_update_irq(LinState *s)
 static void update_baudrate(LinState *s)
 {
     double lfdiv;
-    int baudrate
+    int baudrate;
     
     lfdiv = (s->lin_ibrr & 0xfffff) + (s->lin_fbrr & 0xf) / 16;
 
@@ -138,7 +138,7 @@ static void update_baudrate(LinState *s)
      * The timeout counter is clocked with the baud rate  
      * clock prescaled by a hard-wired scaling factor of 16
      */
-    itimer_set_freq(s->tiemr, baudrate/16);
+    itimer_set_freq(s->timer, baudrate/16);
 }
 
 static void get_txrx_count(LinState *s)
@@ -147,7 +147,7 @@ static void get_txrx_count(LinState *s)
         s->rx_count = (s->uart_cr & RDFLRFC) >> 10; 
     } else {                                    //buffer mode
         s->rx_count = ((s->uart_cr & 0xc00) >> 10) + 1; 
-        if ((s-uart_cr & WL1) && (mask == 1 || mask == 3)) {
+        if ((s->uart_cr & WL1) && (s->rx_count == 1 || s->rx_count == 3)) {
             fprintf(stderr, "WL is configured as halfword, value invalid");
         }
     }
@@ -156,7 +156,7 @@ static void get_txrx_count(LinState *s)
         s->tx_count = (s->uart_cr & TDFLTFC) >> 13; 
     } else {                                    //buffer mode
         s->tx_count = ((s->uart_cr & 0x6000) >> 13) + 1; 
-        if ((s-uart_cr & WL1) && (mask == 1 || mask == 3)) {
+        if ((s->uart_cr & WL1) && (s->tx_count == 1 || s->tx_count == 3)) {
             fprintf(stderr, "WL is configured as halfword, value invalid");
         }
     }
@@ -178,6 +178,7 @@ static uint64_t LINFlexD_read(void *opaque, hwaddr offset,
                            unsigned size)
 {
     LinState *s = (LinState *)opaque;
+    uint32_t c;
 
     /* IFCR0~15 */
     if (offset >= 0x4c && offset < 0x8c) {
@@ -211,7 +212,7 @@ static uint64_t LINFlexD_read(void *opaque, hwaddr offset,
     case 0x2c: /* LINCFR */
         return s->lin_cfr;
     case 0x30: /* LINCR2 */
-        return s->int_level;
+        return s->lin_cr2;
     case 0x34: /* BIDR */
         return s->b_idr;
     case 0x38: /* BDRL */
@@ -283,7 +284,7 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
                             qemu_chr_fe_write(s->chr, s->b_drl.b.bdr, 2);
                         } while (s->tx_count--);
                     } else {                                    //Byte
-                        s->bdrl.b.bdr[0] = val & 0xff;
+                        s->b_drl.b.bdr[0] = val & 0xff;
                         do {
                             qemu_chr_fe_write(s->chr, s->b_drl.b.bdr, 1);
                         } while (s->tx_count--);
@@ -297,7 +298,7 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
                 } else {                                        //buffer mode
                     for (int i=0; i < size; i++) {
                         if (index + i < 4) {
-                            s->bdrl.b.bdr[index + i] = (val >> i*8) & 0xff;
+                            s->b_drl.b.bdr[index + i] = (val >> i*8) & 0xff;
                             if (index + i == 0)
                                 s->tx_count = 0;
                         }
@@ -468,7 +469,10 @@ static int LINFlexD_can_receive(void *opaque)
     if ((s->uart_cr & RXEN) && (s->operation_mode == NORMAL))
     {
         return s->read_count < s->rx_count;
+    } else {
+        return 0;
     }
+    
 }
 
 static void LINFlexD_put_fifo(void *opaque, uint32_t value)

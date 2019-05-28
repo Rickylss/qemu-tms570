@@ -260,13 +260,13 @@ static void ppc_5675board_init(MachineState *machine)
                                 reset_exc[0], pic[28], NULL);
 
     /* LINFlexD 0~3 */
-    deb = sysbus_create_varargs("LINFlexD", 0xffe40000,
+    dev = sysbus_create_varargs("LINFlexD", 0xffe40000,
                                 pic[79], pic[80], pic[81], NULL);
-    deb = sysbus_create_varargs("LINFlexD", 0xffe44000,
+    dev = sysbus_create_varargs("LINFlexD", 0xffe44000,
                                 pic[99], pic[100], pic[101], NULL);
-    deb = sysbus_create_varargs("LINFlexD", 0xffe48000,
+    dev = sysbus_create_varargs("LINFlexD", 0xffe48000,
                                 pic[119], pic[120], pic[121], NULL);
-    deb = sysbus_create_varargs("LINFlexD", 0xffe4c000,
+    dev = sysbus_create_varargs("LINFlexD", 0xffe4c000,
                                 pic[122], pic[123], pic[124], NULL);
 
     

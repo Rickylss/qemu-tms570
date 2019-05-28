@@ -81,7 +81,7 @@ static void itimer_tick(void *opaque)
         s->delta = s->compare;
     } 
 
-    ptimer_reload(s);
+    itimer_reload(s);
 }
 
 uint64_t itimer_get_count(itimer_state *s)
