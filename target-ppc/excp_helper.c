@@ -987,7 +987,8 @@ static inline void do_rfi(CPUPPCState *env, target_ulong nip, target_ulong msr)
 
 void helper_rfi(CPUPPCState *env)
 {
-    do_rfi(env, env->spr[SPR_SRR0], env->spr[SPR_SRR1] & 0xfffffffful);
+    //do_rfi(env, env->spr[SPR_SRR0], env->spr[SPR_SRR1] & 0xfffffffful);
+    do_rfi(env, env->spr[SPR_SRR0], env->spr[SPR_SRR1] & 0xfffful);
 }
 
 #define MSR_BOOK3S_MASK
