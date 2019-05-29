@@ -4580,17 +4580,33 @@ static void init_proc_e200 (CPUPPCState *env, int version)
     {
     case fsl_e200z7:
         spr_register(env, SPR_Exxx_DBCR4, "DBCR4",
-             SPR_NOACCESS, SPR_NOACCESS,
-             &spr_read_generic, &spr_write_generic,
-             0x00000000);
+                     SPR_NOACCESS, SPR_NOACCESS,
+                     &spr_read_generic, &spr_write_generic,
+                     0x00000000);
         spr_register(env, SPR_Exxx_DBCR5, "DBCR5",
-             SPR_NOACCESS, SPR_NOACCESS,
-             &spr_read_generic, &spr_write_generic,
-             0x00000000);
+                    SPR_NOACCESS, SPR_NOACCESS,
+                     &spr_read_generic, &spr_write_generic,
+                     0x00000000);
         spr_register(env, SPR_Exxx_DBCR6, "DBCR6",
-             SPR_NOACCESS, SPR_NOACCESS,
-             &spr_read_generic, &spr_write_generic,
-             0x00000000);
+                     SPR_NOACCESS, SPR_NOACCESS,
+                     &spr_read_generic, &spr_write_generic,
+                     0x00000000);
+        spr_register(env, SPR_BOOKE_SPRG8, "SPRG8",
+                     SPR_NOACCESS, SPR_NOACCESS,
+                     &spr_read_generic, &spr_write_generic,
+                     0x00000000);
+        spr_register(env, SPR_BOOKE_SPRG9, "SPRG9",
+                     SPR_NOACCESS, SPR_NOACCESS,
+                     &spr_read_generic, &spr_write_generic,
+                     0x00000000);
+        spr_register(env, SPR_BOOKE_MCSRR0, "MCSRR0",
+                     SPR_NOACCESS, SPR_NOACCESS,
+                     &spr_read_generic, &spr_write_generic,
+                     0x00000000);
+        spr_register(env, SPR_BOOKE_MCSRR1, "MCSRR1",
+                     SPR_NOACCESS, SPR_NOACCESS,
+                     &spr_read_generic, &spr_write_generic,
+                     0x00000000);
         break;
     default:
         break;
