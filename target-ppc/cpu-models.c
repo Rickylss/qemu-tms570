@@ -482,7 +482,7 @@
                 "PowerPC e200z5 core")
     POWERPC_DEF("e200z6",        CPU_POWERPC_e200z6,                 e200,
                 "PowerPC e200z6 core")
-    POWERPC_DEF("e200z7",        CPU_POWERPC_e200z7,                 e200,
+    POWERPC_DEF("e200z7",        CPU_POWERPC_e200z7,                 e200z7,
                 "PowerPC e200z7 core")
     /* PowerPC e200 microcontrollers                                         */
 #if defined(TODO)

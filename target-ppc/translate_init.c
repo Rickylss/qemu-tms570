@@ -4566,11 +4566,35 @@ POWERPC_FAMILY(G2LE)(ObjectClass *oc, void *data)
                  POWERPC_FLAG_BE | POWERPC_FLAG_BUS_CLK;
 }
 
-static void init_proc_e200 (CPUPPCState *env)
+enum fsl_e200_version {
+    fsl_e200z6,
+    fsl_e200z7,
+};
+
+static void init_proc_e200 (CPUPPCState *env, int version)
 {
     /* Time base */
     gen_tbl(env);
     gen_spr_BookE(env, 0x000000070000FFFFULL);
+    switch (version)
+    {
+    case fsl_e200z7:
+        spr_register(env, SPR_Exxx_DBCR4, "DBCR4",
+             SPR_NOACCESS, SPR_NOACCESS,
+             &spr_read_generic, &spr_write_generic,
+             0x00000000);
+        spr_register(env, SPR_Exxx_DBCR5, "DBCR5",
+             SPR_NOACCESS, SPR_NOACCESS,
+             &spr_read_generic, &spr_write_generic,
+             0x00000000);
+        spr_register(env, SPR_Exxx_DBCR6, "DBCR6",
+             SPR_NOACCESS, SPR_NOACCESS,
+             &spr_read_generic, &spr_write_generic,
+             0x00000000);
+        break;
+    default:
+        break;
+    }
     /* XXX : not implemented */
     spr_register(env, SPR_BOOKE_SPEFSCR, "SPEFSCR",
                  &spr_read_spefscr, &spr_write_spefscr,
@@ -4674,13 +4698,70 @@ static void init_proc_e200 (CPUPPCState *env)
     ppce200_irq_init(ppc_env_get_cpu(env));
 }
 
+static void init_proc_e200z6(CPUPPCState *env)
+{
+    init_proc_e200(env, fsl_e200z6);
+}
+
 POWERPC_FAMILY(e200)(ObjectClass *oc, void *data)
 {
     DeviceClass *dc = DEVICE_CLASS(oc);
     PowerPCCPUClass *pcc = POWERPC_CPU_CLASS(oc);
 
     dc->desc = "e200 core";
-    pcc->init_proc = init_proc_e200;
+    pcc->init_proc = init_proc_e200z6;
+    pcc->check_pow = check_pow_hid0;
+    /* XXX: unimplemented instructions:
+     * dcblc
+     * dcbtlst
+     * dcbtstls
+     * icblc
+     * icbtls
+     * tlbivax
+     * all SPE multiply-accumulate instructions
+     */
+    pcc->insns_flags = PPC_INSNS_BASE | PPC_ISEL |
+                       PPC_SPE | PPC_SPE_SINGLE |
+                       PPC_WRTEE | PPC_RFDI |
+                       PPC_CACHE | PPC_CACHE_LOCK | PPC_CACHE_ICBI |
+                       PPC_CACHE_DCBZ | PPC_CACHE_DCBA |
+                       PPC_MEM_TLBSYNC | PPC_TLBIVAX |
+                       PPC_BOOKE;
+    pcc->msr_mask = (1ull << MSR_UCLE) |
+                    (1ull << MSR_SPE) |
+                    (1ull << MSR_POW) |
+                    (1ull << MSR_CE) |
+                    (1ull << MSR_EE) |
+                    (1ull << MSR_PR) |
+                    (1ull << MSR_FP) |
+                    (1ull << MSR_ME) |
+                    (1ull << MSR_FE0) |
+                    (1ull << MSR_DWE) |
+                    (1ull << MSR_DE) |
+                    (1ull << MSR_FE1) |
+                    (1ull << MSR_IR) |
+                    (1ull << MSR_DR);
+    pcc->mmu_model = POWERPC_MMU_BOOKE;
+    pcc->excp_model = POWERPC_EXCP_BOOKE;
+    pcc->bus_model = PPC_FLAGS_INPUT_BookE;
+    pcc->bfd_mach = bfd_mach_ppc_860;
+    pcc->flags = POWERPC_FLAG_SPE | POWERPC_FLAG_CE |
+                 POWERPC_FLAG_UBLE | POWERPC_FLAG_DE |
+                 POWERPC_FLAG_BUS_CLK;
+}
+
+static void init_proc_e200z7(CPUPPCState *env)
+{
+    init_proc_e200(env, fsl_e200z7);
+}
+
+POWERPC_FAMILY(e200z7)(ObjectClass *oc, void *data)
+{
+    DeviceClass *dc = DEVICE_CLASS(oc);
+    PowerPCCPUClass *pcc = POWERPC_CPU_CLASS(oc);
+
+    dc->desc = "e200z7 core";
+    pcc->init_proc = init_proc_e200z7;
     pcc->check_pow = check_pow_hid0;
     /* XXX: unimplemented instructions:
      * dcblc
