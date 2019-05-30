@@ -4573,11 +4573,23 @@ enum fsl_e200_version {
 
 static void init_proc_e200 (CPUPPCState *env, int version)
 {
+    PowerPCCPU *cpu = ppc_env_get_cpu(env);
+    uint32_t tlbncfg[2];
+    uint32_t l1cfg0 = 0x1800  /* 4 ways */
+                    | 0x0010; /* 16 kb */
+    uint32_t l1cfg1 = 0x1800  /* 4 ways */
+                    | 0x0010; /* 16 kb */
+#if !defined(CONFIG_USER_ONLY)
+    int i;
+#endif
+
     /* Time base */
     gen_tbl(env);
     gen_spr_BookE(env, 0x000000070000FFFFULL);
     switch (version)
     {
+    case fsl_e200z6:
+        break;
     case fsl_e200z7:
         spr_register(env, SPR_Exxx_DBCR4, "DBCR4",
                      SPR_NOACCESS, SPR_NOACCESS,
@@ -4609,15 +4621,52 @@ static void init_proc_e200 (CPUPPCState *env, int version)
                      0x00000000);
         break;
     default:
-        break;
+        cpu_abort(CPU(cpu), "Unknown CPU: " TARGET_FMT_lx "\n", env->spr[SPR_PVR]);
     }
+    /* Processor identification */
+    spr_register(env, SPR_BOOKE_PIR, "PIR",
+                 SPR_NOACCESS, SPR_NOACCESS,
+                 &spr_read_generic, &spr_write_pir,
+                 0x00000000);
     /* XXX : not implemented */
     spr_register(env, SPR_BOOKE_SPEFSCR, "SPEFSCR",
                  &spr_read_spefscr, &spr_write_spefscr,
                  &spr_read_spefscr, &spr_write_spefscr,
                  0x00000000);
+#if !defined(CONFIG_USER_ONLY)
     /* Memory management */
-    gen_spr_BookE206(env, 0x0000005f, NULL);
+    env->nb_pids = 1;
+    env->nb_ways = 2;
+    env->id_tlbs = 0;
+    switch (version) {
+    case fsl_e200z6:
+        tlbncfg[0] = gen_tlbncfg(0, 0, 0, 0, 0);
+        tlbncfg[1] = gen_tlbncfg(32, 1, 9, TLBnCFG_AVAIL | TLBnCFG_IPROT, 32);
+        break;
+    case fsl_e200z7:
+        tlbncfg[0] = gen_tlbncfg(64, 0, 11, TLBnCFG_AVAIL | TLBnCFG_IPROT, 64);
+        tlbncfg[1] = gen_tlbncfg(64, 0, 11, TLBnCFG_AVAIL | TLBnCFG_IPROT, 64);
+        break;
+    default:
+        cpu_abort(CPU(cpu), "Unknown CPU: " TARGET_FMT_lx "\n", env->spr[SPR_PVR]);
+    }
+#endif
+    /* Cache sizes */
+    switch (version) {
+    case fsl_e200z6:
+        env->dcache_line_size = 32;
+        env->icache_line_size = 32;
+        break;
+    case fsl_e200z7:
+        env->dcache_line_size = 32;
+        env->icache_line_size = 32;
+        l1cfg0 |= 0x28580000; /* 32 byte cache block size */
+        l1cfg1 |= 0x08580000; /* 32 byte cache block size */
+        break;
+    default:
+        cpu_abort(CPU(cpu), "Unknown CPU: " TARGET_FMT_lx "\n", env->spr[SPR_PVR]);
+    }
+    gen_spr_BookE206(env, 0x0000005F, tlbncfg);
     /* XXX : not implemented */
     spr_register(env, SPR_HID0, "HID0",
                  SPR_NOACCESS, SPR_NOACCESS,
@@ -4653,28 +4702,24 @@ static void init_proc_e200 (CPUPPCState *env, int version)
                  SPR_NOACCESS, SPR_NOACCESS,
                  &spr_read_generic, &spr_write_generic,
                  0x00000000);
-    /* XXX : not implemented */
     spr_register(env, SPR_Exxx_L1CFG0, "L1CFG0",
                  &spr_read_generic, SPR_NOACCESS,
                  &spr_read_generic, SPR_NOACCESS,
-                 0x00000000);
-    /* XXX : not implemented */
+                 l1cfg0);
+    spr_register(env, SPR_Exxx_L1CFG1, "L1CFG1",
+                 &spr_read_generic, SPR_NOACCESS,
+                 &spr_read_generic, SPR_NOACCESS,
+                 l1cfg1);
     spr_register(env, SPR_Exxx_L1CSR0, "L1CSR0",
                  SPR_NOACCESS, SPR_NOACCESS,
-                 &spr_read_generic, &spr_write_generic,
+                 &spr_read_generic, &spr_write_e500_l1csr0,
+                 0x00000000);
+    spr_register(env, SPR_Exxx_L1CSR1, "L1CSR1",
+                 SPR_NOACCESS, SPR_NOACCESS,
+                 &spr_read_generic, &spr_write_e500_l1csr1,
                  0x00000000);
     /* XXX : not implemented */
     spr_register(env, SPR_Exxx_L1FINV0, "L1FINV0",
-                 SPR_NOACCESS, SPR_NOACCESS,
-                 &spr_read_generic, &spr_write_generic,
-                 0x00000000);
-    /* XXX : not implemented */
-    spr_register(env, SPR_BOOKE_TLB0CFG, "TLB0CFG",
-                 SPR_NOACCESS, SPR_NOACCESS,
-                 &spr_read_generic, &spr_write_generic,
-                 0x00000000);
-    /* XXX : not implemented */
-    spr_register(env, SPR_BOOKE_TLB1CFG, "TLB1CFG",
                  SPR_NOACCESS, SPR_NOACCESS,
                  &spr_read_generic, &spr_write_generic,
                  0x00000000);
@@ -4688,11 +4733,10 @@ static void init_proc_e200 (CPUPPCState *env, int version)
                  SPR_NOACCESS, SPR_NOACCESS,
                  &spr_read_generic, &spr_write_generic,
                  0x00000000);
-    /* XXX : not implemented */
     spr_register(env, SPR_MMUCSR0, "MMUCSR0",
                  SPR_NOACCESS, SPR_NOACCESS,
-                 &spr_read_generic, &spr_write_generic,
-                 0x00000000); /* TOFIX */
+                 &spr_read_generic, &spr_write_booke206_mmucsr0,
+                 0x00000000); 
     spr_register(env, SPR_BOOKE_DSRR0, "DSRR0",
                  SPR_NOACCESS, SPR_NOACCESS,
                  &spr_read_generic, &spr_write_generic,
@@ -4702,15 +4746,13 @@ static void init_proc_e200 (CPUPPCState *env, int version)
                  &spr_read_generic, &spr_write_generic,
                  0x00000000);
 #if !defined(CONFIG_USER_ONLY)
-    env->nb_tlb = 64;
-    env->nb_ways = 1;
-    env->id_tlbs = 0;
-    env->tlb_type = TLB_EMB;
+    env->nb_tlb = 0;
+    env->tlb_type = TLB_MAS;
+    for (i = 0; i < BOOKE206_MAX_TLBN; i++) {
+        env->nb_tlb += booke206_tlb_size(env, i);
+    }
 #endif
     init_excp_e200(env, 0xFFFF0000UL);
-    env->dcache_line_size = 32;
-    env->icache_line_size = 32;
-    /* XXX: TODO: allocate internal IRQ controller */
     ppce200_irq_init(ppc_env_get_cpu(env));
 }
 
@@ -4779,22 +4821,13 @@ POWERPC_FAMILY(e200z7)(ObjectClass *oc, void *data)
     dc->desc = "e200z7 core";
     pcc->init_proc = init_proc_e200z7;
     pcc->check_pow = check_pow_hid0;
-    /* XXX: unimplemented instructions:
-     * dcblc
-     * dcbtlst
-     * dcbtstls
-     * icblc
-     * icbtls
-     * tlbivax
-     * all SPE multiply-accumulate instructions
-     */
     pcc->insns_flags = PPC_INSNS_BASE | PPC_ISEL |
                        PPC_SPE | PPC_SPE_SINGLE |
                        PPC_WRTEE | PPC_RFDI |
                        PPC_CACHE | PPC_CACHE_LOCK | PPC_CACHE_ICBI |
                        PPC_CACHE_DCBZ | PPC_CACHE_DCBA |
-                       PPC_MEM_TLBSYNC | PPC_TLBIVAX |
-                       PPC_BOOKE;
+                       PPC_MEM_TLBSYNC | PPC_TLBIVAX | PPC_MEM_SYNC;
+    pcc->insns_flags2 = PPC2_BOOKE206;
     pcc->msr_mask = (1ull << MSR_UCLE) |
                     (1ull << MSR_SPE) |
                     (1ull << MSR_POW) |
@@ -4809,7 +4842,7 @@ POWERPC_FAMILY(e200z7)(ObjectClass *oc, void *data)
                     (1ull << MSR_FE1) |
                     (1ull << MSR_IR) |
                     (1ull << MSR_DR);
-    pcc->mmu_model = POWERPC_MMU_BOOKE;
+    pcc->mmu_model = POWERPC_MMU_BOOKE206;
     pcc->excp_model = POWERPC_EXCP_BOOKE;
     pcc->bus_model = PPC_FLAGS_INPUT_BookE;
     pcc->bfd_mach = bfd_mach_ppc_860;
