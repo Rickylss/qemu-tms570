@@ -4644,8 +4644,8 @@ static void init_proc_e200 (CPUPPCState *env, int version)
         tlbncfg[1] = gen_tlbncfg(32, 1, 9, TLBnCFG_AVAIL | TLBnCFG_IPROT, 32);
         break;
     case fsl_e200z7:
-        tlbncfg[0] = gen_tlbncfg(64, 0, 11, TLBnCFG_AVAIL | TLBnCFG_IPROT, 64);
-        tlbncfg[1] = gen_tlbncfg(64, 0, 11, TLBnCFG_AVAIL | TLBnCFG_IPROT, 64);
+        tlbncfg[0] = gen_tlbncfg(0, 0, 0, 0, 0);
+        tlbncfg[1] = gen_tlbncfg(64, 1, 12, TLBnCFG_AVAIL | TLBnCFG_IPROT, 64);
         break;
     default:
         cpu_abort(CPU(cpu), "Unknown CPU: " TARGET_FMT_lx "\n", env->spr[SPR_PVR]);
@@ -4666,7 +4666,7 @@ static void init_proc_e200 (CPUPPCState *env, int version)
     default:
         cpu_abort(CPU(cpu), "Unknown CPU: " TARGET_FMT_lx "\n", env->spr[SPR_PVR]);
     }
-    gen_spr_BookE206(env, 0x0000005F, tlbncfg);
+    gen_spr_BookE206(env, 0x000000DF, tlbncfg);
     /* XXX : not implemented */
     spr_register(env, SPR_HID0, "HID0",
                  SPR_NOACCESS, SPR_NOACCESS,
