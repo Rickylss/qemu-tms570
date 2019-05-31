@@ -1,26 +1,11 @@
 /*
- * QEMU PPC 5675 hardware System Emulator
+ * QEMU PPC5675 hardware System Emulator
  *
- * Copyright (c) 2003-2007 Jocelyn Mayer
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
+ * Copyright (c) 2019 FormalTech
+ * Written by xiaohaibiao
+ * 
  */
+
 #include "qemu/osdep.h"
 #include "cpu.h"
 #include "hw/hw.h"
@@ -46,6 +31,8 @@
 #define MAX_CPUS 1
 #define KERNEL_LOAD_ADDR 0x01000000
 #define BIOS_SIZE (1024 * 1024)
+#define RESET_TSIZE (2 << MAS1_TSIZE_SHIFT) // 0b00010 SIZE 4KB page size
+#define RESET_MAPSIZE (1ULL << 10 << 2)
 #if defined (TARGET_PPC64)
 #define PPC_ELF_MACHINE     EM_PPC64
 #else
@@ -61,86 +48,18 @@ struct boot_info
     uint32_t entry;
 };
 
-// /* Create -kernel TLB entries for BookE.  */
-// static hwaddr booke206_page_size_to_tlb(uint64_t size)
-// {
-//     return 63 - clz64(size >> 10);
-// }
-
-// static int booke206_initial_map_tsize(CPUPPCState *env)
-// {
-//     struct boot_info *bi = env->load_info;
-//     hwaddr dt_end;
-//     int ps;
-
-//     /* Our initial TLB entry needs to cover everything from 0 to
-//        the device tree top */
-//     dt_end = bi->dt_base + bi->dt_size;
-//     ps = booke206_page_size_to_tlb(dt_end) + 1;
-//     if (ps & 1) {
-//         /* e500v2 can only do even TLB size bits */
-//         ps++;
-//     }
-//     return ps;
-// }
-
-// static void mmubooke_create_initial_mapping(CPUPPCState *env)
-// {
-//     ppcmas_tlb_t *tlb = booke206_get_tlbm(env, 0, 0, 0);
-//     hwaddr size;
-//     int ps;
-
-//     ps = booke206_initial_map_tsize(env);
-//     size = (ps << MAS1_TSIZE_SHIFT);
-//     tlb->mas1 = MAS1_VALID | size;
-//     // tlb->mas2 = 0;
-//     // tlb->mas7_3 = 0;
-//     tlb->mas7_3 |= MAS3_UR | MAS3_UW | MAS3_UX | MAS3_SR | MAS3_SW | MAS3_SX;
-
-//     env->tlb_dirty = true;
-// }
-
 /* Create -kernel TLB entries for BookE.  */
 static hwaddr booke206_page_size_to_tlb(uint64_t size)
 {
     return 63 - clz64(size >> 10);
 }
 
-static int booke206_initial_map_tsize(CPUPPCState *env)
-{
-    struct boot_info *bi = env->load_info;
-    hwaddr dt_end;
-    int ps;
-
-    /* Our initial TLB entry needs to cover everything from 0 to
-       the device tree top */
-    dt_end = bi->dt_base + bi->dt_size;
-    ps = booke206_page_size_to_tlb(dt_end) + 1;
-    if (ps & 1) {
-        /* e500v2 can only do even TLB size bits */
-        ps++;
-    }
-    return ps;
-}
-
-static uint64_t mmubooke_initial_mapsize(CPUPPCState *env)
-{
-    int tsize;
-
-    tsize = booke206_initial_map_tsize(env);
-    return (1ULL << 10 << tsize);
-}
-
 /* Create reset TLB entries for BookE, spanning the 32bit addr space.  */
 static void mmubooke_create_initial_mapping(CPUPPCState *env)
 {
     ppcmas_tlb_t *tlb = booke206_get_tlbm(env, 1, 0, 0);
-    hwaddr size;
-    int ps;
 
-    ps = booke206_initial_map_tsize(env);
-    size = (ps << MAS1_TSIZE_SHIFT);
-    tlb->mas1 = MAS1_VALID | size;
+    tlb->mas1 = MAS1_VALID | MAS1_IPROT | RESET_TSIZE;
     tlb->mas2 = 0;
     tlb->mas7_3 = 0;
     tlb->mas7_3 |= MAS3_UR | MAS3_UW | MAS3_UX | MAS3_SR | MAS3_SW | MAS3_SX;
@@ -158,7 +77,6 @@ static void ppc_5675_reset(void *opaque)
     cpu_reset(cs);
 
     fprintf(stderr,"bios entry:%x\n",bi->entry);
-    env->nip = bi->entry;
         /* Set initial guest state. */
     cs->halted = 0;
     env->gpr[1] = (16<<20) - 8;
@@ -166,7 +84,7 @@ static void ppc_5675_reset(void *opaque)
     env->gpr[4] = 0;
     env->gpr[5] = 0;
     env->gpr[6] = EPAPR_MAGIC;
-    env->gpr[7] = mmubooke_initial_mapsize(env);
+    env->gpr[7] = RESET_MAPSIZE;
     env->gpr[8] = 0;
     env->gpr[9] = 0;
     env->nip = bi->entry;
@@ -176,7 +94,6 @@ static void ppc_5675_reset(void *opaque)
 static void ppc_5675board_init(MachineState *machine)
 {
     MemoryRegion *address_space_mem = get_system_memory();
-    //MemoryRegion *ram = g_new(MemoryRegion, 1);
     MemoryRegion *flash = g_new(MemoryRegion, 1);
     MemoryRegion *ebi = g_new(MemoryRegion, 1);
     MemoryRegion *sram = g_new(MemoryRegion, 1);
@@ -190,7 +107,6 @@ static void ppc_5675board_init(MachineState *machine)
     hwaddr bios_entry = 0;
     target_long bios_size;
     struct boot_info *boot_info;
-    // int dt_size;
     int i;
     CPUPPCState *firstenv = NULL;
     DeviceState *dev, *stm;
@@ -337,6 +253,7 @@ static void ppc_5675board_init(MachineState *machine)
         if (kernel_size < 0) {
             int appsize=-1;
             appsize = load_image_targphys(filename, 0, machine->ram_size);
+            bios_entry = 0x6c;
             if(appsize < 0){
                 fprintf(stderr, "qemu: could not load firmware '%s'\n", filename);
                 exit(1);
@@ -354,7 +271,7 @@ static void ppc5675board_machine_init(MachineClass *mc)
     mc->desc = "mpc5675 platform";
     mc->init = ppc_5675board_init;
     mc->max_cpus = 1;
-    mc->default_ram_size = 128 * M_BYTE;
+    //mc->default_ram_size = 128 * M_BYTE;
     mc->default_boot_order = "cadc";
 }
 
