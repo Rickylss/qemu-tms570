@@ -48,12 +48,6 @@ struct boot_info
     uint32_t entry;
 };
 
-/* Create -kernel TLB entries for BookE.  */
-static hwaddr booke206_page_size_to_tlb(uint64_t size)
-{
-    return 63 - clz64(size >> 10);
-}
-
 /* Create reset TLB entries for BookE, spanning the 32bit addr space.  */
 static void mmubooke_create_initial_mapping(CPUPPCState *env)
 {
