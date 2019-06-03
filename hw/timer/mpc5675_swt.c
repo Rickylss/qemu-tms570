@@ -142,6 +142,7 @@ static void swt_write(void *opaque, hwaddr offset,
     {
     case 0x00:  //SWT_CR
         if ((s->swt_cr & 0x30) == 0) { //write able
+            s->swt_cr = val & 0xff0003ff;
             if (s->swt_cr & 0x1) {
                 ptimer_run(s->timer, 0);
             } else {
