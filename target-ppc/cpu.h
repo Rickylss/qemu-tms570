@@ -2404,6 +2404,13 @@ static inline uint32_t booke206_tlbnps(CPUPPCState *env, const int tlbn)
         for (i = min; i <= max; i++) {
             ret |= (1 << (i << 1));
         }
+        if (env->spr[SPR_PVR] == 0x81630000)
+        {
+            for (i = min; i <= max; i++) {
+                ret |= (1 << ((i << 1) + 1));
+            }
+            ret &= ~(1 << 23);
+        }
     }
 
     return ret;
