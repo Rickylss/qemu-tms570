@@ -106,20 +106,20 @@ static void intc_update_vectors(IntcState *s)
 {
     int irq = 0;
     int32_t temp_pri = 0;
+    bool asserted = false;
 
     for (int i = 0; i < MAX_IRQ; i++) {
-        if (s->asserted_int[i])
-        { // asserted interrupt
+        if (s->asserted_int[i]) { // asserted interrupt
             if (s->pri[i] > temp_pri) { //only the one with the lowest vector is chosen
                 temp_pri = s->pri[i];
                 irq = i;
             }
+            asserted = true;
         }
     }
 
     /* compare to current pri */
-    if (temp_pri > (s->cpr_prc0 & 0xf))
-    {
+    if (temp_pri > (s->cpr_prc0 & 0xf)) {
         s->current_irq = irq;
         push_LIFO(s);
         s->cpr_prc0 = temp_pri & 0xf;
@@ -127,12 +127,11 @@ static void intc_update_vectors(IntcState *s)
         s->iackr_prc0 = (s->iackr_prc0 & ((s->bcr & 0x20) ? 0xfffff000: 0xfffff800)) + s->entry_size * irq;
 
         qemu_irq_raise(s->irq);
+    } 
 
-        s->asserted_int[irq] = 0;
-    } else {
+    if (!asserted) { // no interrupt assert
         qemu_irq_lower(s->irq);
     }
-
 }
 
 static void intc_set_software_irq(IntcState *s)
@@ -192,6 +191,7 @@ static void intc_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
         break;
     case 0x18:
         s->cpr_prc0 = pop_LIFO(s);
+        s->asserted_int[s->current_irq] = 0;
         intc_update_vectors(s);
         break;
     default:
