@@ -124,14 +124,15 @@ static void intc_update_vectors(IntcState *s)
         push_LIFO(s);
         s->cpr_prc0 = temp_pri & 0xf;
         /* set INTC_IACKR_PRC0 with current isr */
-        s->iackr_prc0 += s->entry_size * irq;
+        s->iackr_prc0 = (s->iackr_prc0 & ((s->bcr & 0x20) ? 0xfffff000: 0xfffff800)) + s->entry_size * irq;
 
         qemu_irq_raise(s->irq);
 
         s->asserted_int[irq] = 0;
+    } else {
+        qemu_irq_lower(s->irq);
     }
 
-    qemu_irq_lower(s->irq);
 }
 
 static void intc_set_software_irq(IntcState *s)
