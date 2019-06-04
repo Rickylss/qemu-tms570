@@ -181,10 +181,10 @@ static void pit_timer_tick_all(void *opaque, int index)
     // causes an interrupt request;
     s->tflg[index] |= 0x1;
 
+    pit_update(s);
+
     ptimer_set_count(s->timer[index], s->ldval[index]);
     ptimer_run(s->timer[index], 1);
-
-    pit_update(s);
 }
 
 inline static void timer0_tick(void *opaque){
