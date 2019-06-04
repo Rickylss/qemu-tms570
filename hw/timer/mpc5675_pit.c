@@ -139,7 +139,7 @@ static void pit_write(void * opaque, hwaddr offset,
     case 0x130:
         index = (offset - 0x100) >> 4;
         s->ldval[index] = val;
-        ptimer_set_limit(s->timer[index], s->ldval[index], 1);
+        ptimer_set_count(s->timer[index], s->ldval[index]);
         break;
     case 0x104: //CVAL
     case 0x114: //read-only
@@ -181,8 +181,8 @@ static void pit_timer_tick_all(void *opaque, int index)
     // causes an interrupt request;
     s->tflg[index] |= 0x1;
 
-    //ptimer_set_count(s->timer[index], s->ldval[index]);
-    //ptimer_run(s->timer[index], 1);
+    ptimer_set_count(s->timer[index], s->ldval[index]);
+    ptimer_run(s->timer[index], 1);
 
     pit_update(s);
 }
