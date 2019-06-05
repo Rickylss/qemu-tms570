@@ -114,7 +114,6 @@ static void intc_update_vectors(IntcState *s)
                 temp_pri = s->pri[i];
                 irq = i;
             }
-            asserted = true;
         }
     }
 
@@ -125,6 +124,8 @@ static void intc_update_vectors(IntcState *s)
         s->cpr_prc0 = temp_pri & 0xf;
         /* set INTC_IACKR_PRC0 with current isr */
         s->iackr_prc0 = (s->iackr_prc0 & ((s->bcr & 0x20) ? 0xfffff000: 0xfffff800)) + s->entry_size * irq;
+        
+        asserted = true;
     } 
 
     qemu_set_irq(s->irq, asserted);
@@ -187,7 +188,6 @@ static void intc_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
         break;
     case 0x18:
         s->cpr_prc0 = pop_LIFO(s);
-        s->asserted_int[s->current_irq] = 0;
         intc_update_vectors(s);
         break;
     default:
@@ -239,6 +239,7 @@ static uint64_t intc_read(void *opaque, hwaddr offset, unsigned size)
         switch (s->vect_mode)
         {
         case SOFTWARE_VECTOR_MODE:
+            s->asserted_int[s->current_irq] = 0;
             intc_update_vectors(s);
             break;
         case HARDWARE_VECTOR_MODE:
