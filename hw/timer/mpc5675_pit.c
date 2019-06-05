@@ -35,16 +35,20 @@ typedef struct PitState {
     qemu_irq irq[4];
 } PitState;
 
-static void pit_update(PitState *s)
+static void pit_update(PitState *s, int index)
 {
     bool irq; 
 
-    for (size_t i = 0; i < 4; i++)
+    if (index > 4)
     {
-        irq = (s->tflg[i] & 0x1) && (s->tctrl[i] & 0x2);
-        qemu_set_irq(s->irq[i], irq);
-        s->tflg[i] &= ~ 0x1;
+        qemu_log_mask(LOG_GUEST_ERROR,
+                      "pit_update: timer %d out of range\n", index);
     }
+    
+    irq = (s->tflg[index] & 0x1) && (s->tctrl[index] & 0x2);
+    qemu_set_irq(s->irq[index], irq);
+    s->tflg[index] &= ~ 0x1;
+
 }
 
 static uint64_t pit_read(void *opaque, hwaddr offset,
@@ -153,7 +157,7 @@ static void pit_write(void * opaque, hwaddr offset,
         index = (offset - 0x108) >> 4;
         s->tctrl[index] = val & 0x3;
         change_timer_state(s, index);
-        pit_update(s);//update interrupt
+        pit_update(s, index);//update interrupt
         break;
     case 0x10c: //TFLG
     case 0x11c:
@@ -161,7 +165,7 @@ static void pit_write(void * opaque, hwaddr offset,
     case 0x13c:
         index = (offset - 0x10c) >> 4;
         s->tflg[index] &= ~(val & 0x1);
-        pit_update(s);//update interrupt
+        pit_update(s, index);//update interrupt
         break;
     default:
         break;
@@ -181,7 +185,7 @@ static void pit_timer_tick_all(void *opaque, int index)
     // causes an interrupt request;
     s->tflg[index] |= 0x1;
 
-    pit_update(s);
+    pit_update(s, index);
 
     ptimer_set_count(s->timer[index], s->ldval[index]);
     ptimer_run(s->timer[index], 1);

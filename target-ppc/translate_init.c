@@ -4837,11 +4837,12 @@ POWERPC_FAMILY(e200z7)(ObjectClass *oc, void *data)
                     (1ull << MSR_FP) |
                     (1ull << MSR_ME) |
                     (1ull << MSR_FE0) |
-                    (1ull << MSR_DWE) |
                     (1ull << MSR_DE) |
                     (1ull << MSR_FE1) |
-                    (1ull << MSR_IR) |
-                    (1ull << MSR_DR);
+                    (1ull << MSR_IS) |
+                    (1ull << MSR_DS) |
+                    (1ull << MSR_PMM) |
+                    (1ull << MSR_RI);
     pcc->mmu_model = POWERPC_MMU_BOOKE206;
     pcc->excp_model = POWERPC_EXCP_BOOKE;
     pcc->bus_model = PPC_FLAGS_INPUT_BookE;
