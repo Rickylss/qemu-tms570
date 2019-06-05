@@ -4848,7 +4848,7 @@ POWERPC_FAMILY(e200z7)(ObjectClass *oc, void *data)
     pcc->bus_model = PPC_FLAGS_INPUT_BookE;
     pcc->bfd_mach = bfd_mach_ppc_860;
     pcc->flags = POWERPC_FLAG_SPE | POWERPC_FLAG_CE |
-                 POWERPC_FLAG_UBLE | POWERPC_FLAG_DE |
+                 POWERPC_FLAG_DE | POWERPC_FLAG_PMM |
                  POWERPC_FLAG_BUS_CLK;
 }
 
