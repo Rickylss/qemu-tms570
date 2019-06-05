@@ -41,6 +41,7 @@ typedef struct IntcState {
     Operation_Mode op_mode;
 
     stack LIFO;
+    int LIFO_lock;
     uint32_t entry_size;
 
     /* Behavior control */
@@ -80,6 +81,11 @@ static void set_vector_table_entry_size(IntcState *s, uint32_t is_8_bytes)
 
 static void push_LIFO(IntcState *s)
 {
+    if (s->LIFO_lock)
+    {
+        return;
+    }
+    
     if (s->LIFO.top < 16) {
         s->LIFO.pri[++(s->LIFO.top)] = s->cpr_prc0 & 0xf;
     } else { // overwritten the priorities first pushed
@@ -91,15 +97,22 @@ static void push_LIFO(IntcState *s)
             }
         }
     }
+    s->LIFO_lock = 1;
 }
 
 static uint32_t pop_LIFO(IntcState *s)
 {
+    if (!s->LIFO_lock)
+    {
+        return s->cpr_prc0 & 0xf;
+    }
+    
     if (s->LIFO.top == 0) {
         return 0;
     } else {
         return s->LIFO.pri[(s->LIFO.top)--];
     }
+    s->LIFO_lock = 0;
 }
 
 static void intc_update_vectors(IntcState *s)
