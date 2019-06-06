@@ -89,7 +89,9 @@ uint64_t itimer_get_count(itimer_state *s)
     uint64_t counter;
     uint64_t delta = s->compare - s->delta;
 
-    if (s->enabled) {
+    if (delta == 0) {
+        counter =  s->compare;
+    } else if (s->enabled) {
         int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
         int64_t next = s->next_event;
         bool expired = (now - next >= 0);
@@ -211,6 +213,7 @@ void itimer_set_freq(itimer_state *s, uint32_t freq)
 /* Set compare value */
 void itimer_set_compare(itimer_state *s, uint32_t compare)
 {
+    s->delta = itimer_get_count(s);
     s->compare = compare;
     if (s->enabled) {
         s->next_event = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);

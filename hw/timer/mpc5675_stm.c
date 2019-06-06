@@ -60,9 +60,13 @@ static void stm_update(StmState *s)
 static void update_channel(StmState *s)
 {
     /* set next channel */
+    /* once stm_cnt is larger than cmps,
+     * it cause an overflow, and the next cmp is cmplist[0]
+     */
+    s->current_cmp = s->current_cmplist[0].index;
     for (int i = 0; i < 4; i++) {
         if (s->stm_ccr[i] & 0x1) {
-            if (s->current_cmplist[i].value < s->stm_cnt) {
+            if (s->current_cmplist[i].value < itimer_get_count(s->timer)) {
                 continue;
             } else {
                 s->current_cmp = s->current_cmplist[i].index;
