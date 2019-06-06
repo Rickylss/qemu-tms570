@@ -41,7 +41,6 @@ typedef struct IntcState {
     Operation_Mode op_mode;
 
     stack LIFO;
-    int LIFO_lock;
     uint32_t entry_size;
 
     /* Behavior control */
@@ -56,6 +55,7 @@ typedef struct IntcState {
     uint32_t pri[337]; /* INTC Priority Select Registers */
 
     uint8_t asserted_int[337];
+    int asserted_count;
     uint32_t current_irq;
 
     qemu_irq irq;
@@ -81,11 +81,6 @@ static void set_vector_table_entry_size(IntcState *s, uint32_t is_8_bytes)
 
 static void push_LIFO(IntcState *s)
 {
-    if (s->LIFO_lock)
-    {
-        return;
-    }
-    
     if (s->LIFO.top < 16) {
         s->LIFO.pri[++(s->LIFO.top)] = s->cpr_prc0 & 0xf;
     } else { // overwritten the priorities first pushed
@@ -97,22 +92,15 @@ static void push_LIFO(IntcState *s)
             }
         }
     }
-    s->LIFO_lock = 1;
 }
 
 static uint32_t pop_LIFO(IntcState *s)
 {
-    if (!s->LIFO_lock)
-    {
-        return s->cpr_prc0 & 0xf;
-    }
-    
     if (s->LIFO.top == 0) {
         return 0;
     } else {
         return s->LIFO.pri[(s->LIFO.top)--];
     }
-    s->LIFO_lock = 0;
 }
 
 static void intc_update_vectors(IntcState *s)
@@ -131,13 +119,23 @@ static void intc_update_vectors(IntcState *s)
 
     /* compare to current pri */
     if (temp_pri > (s->cpr_prc0 & 0xf)) {
+        s->asserted_count++;
+
         s->current_irq = irq;
         push_LIFO(s);
         s->cpr_prc0 = temp_pri & 0xf;
         /* set INTC_IACKR_PRC0 with current isr */
         s->iackr_prc0 = (s->iackr_prc0 & ((s->bcr & 0x20) ? 0xfffff000: 0xfffff800)) + s->entry_size * irq;
-
         qemu_irq_raise(s->irq);
+
+    } else if (temp_pri == (s->cpr_prc0 & 0xf) &&  s->asserted_count > 0) {
+        s->current_irq = irq;
+        push_LIFO(s);
+        s->cpr_prc0 = temp_pri & 0xf;
+        /* set INTC_IACKR_PRC0 with current isr */
+        s->iackr_prc0 = (s->iackr_prc0 & ((s->bcr & 0x20) ? 0xfffff000: 0xfffff800)) + s->entry_size * irq;
+        qemu_irq_raise(s->irq);
+
     } else {
         qemu_irq_lower(s->irq);
     }
@@ -252,6 +250,7 @@ static uint64_t intc_read(void *opaque, hwaddr offset, unsigned size)
         {
         case SOFTWARE_VECTOR_MODE:
             s->asserted_int[s->current_irq] = 0;
+            s->asserted_count--;
             intc_update_vectors(s);
             break;
         case HARDWARE_VECTOR_MODE:
