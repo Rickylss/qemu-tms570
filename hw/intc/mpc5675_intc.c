@@ -130,7 +130,6 @@ static void intc_update_vectors(IntcState *s)
 
     } else if (temp_pri == (s->cpr_prc0 & 0xf) &&  s->asserted_count > 0) {
         s->current_irq = irq;
-        push_LIFO(s);
         s->cpr_prc0 = temp_pri & 0xf;
         /* set INTC_IACKR_PRC0 with current isr */
         s->iackr_prc0 = (s->iackr_prc0 & ((s->bcr & 0x20) ? 0xfffff000: 0xfffff800)) + s->entry_size * irq;
@@ -346,6 +345,14 @@ static void intc_reset(DeviceState *d)
 
     s->cpr_prc0 = 0x0000000f;
     s->entry_size = 4;//byte
+    memset(&s->LIFO, 0, sizeof(s->LIFO));
+    s->asserted_count = 0;
+
+    /* 
+     * system reset will not reset the irq state.
+     * so we need do it manually
+     */
+    qemu_irq_lower(s->irq);
 }
 
 static void intc_class_init(ObjectClass *oc, void *data)

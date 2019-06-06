@@ -144,15 +144,12 @@ static void swt_write(void *opaque, hwaddr offset,
         if ((s->swt_cr & 0x30) == 0) { //write able
             s->swt_cr = val & 0xff0003ff;
             if (s->swt_cr & 0x1) {
-                ptimer_run(s->timer, 0);
+                ptimer_run(s->timer, 1);
             } else {
                 ptimer_stop(s->timer);
             }
-            if (s->swt_cr & 0x8) {  // use oscillator clock
-                ptimer_set_freq(s->timer, 16 * 1000 * 1000);
-            } else {                // use system clock
-                ptimer_set_freq(s->timer, 50 * 1000 * 1000);
-            }
+            /* use oscillator clock:16000000  or  use system clock:50000000*/
+            ptimer_set_freq(s->timer, (s->swt_cr & 0x8)? 16000000: 50000000);
         }
         break;
     case 0x04:  //SWT_IR
