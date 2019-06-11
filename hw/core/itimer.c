@@ -18,7 +18,7 @@ struct itimer_state
     QEMUTimer *timer;
 
     uint8_t enabled; /* 0 = disabled, 1 = poll, 2 = reset.  */
-    uint64_t delta;
+    uint64_t count;
     uint32_t period_frac;
     int64_t period;
     int64_t last_event;
@@ -38,10 +38,10 @@ static void itimer_reload(itimer_state *s)
 {
     uint32_t period_frac = s->period_frac;
     uint64_t period = s->period;
-    uint64_t delta = s->compare - s->delta;
+    uint32_t delta = s->compare - s->count;
 
     if (delta == 0) {
-        itimer_trigger(s);
+        //itimer_trigger(s);
         delta = 0xffffffff;//rolls over at 0xffffffff to 0x00000000
     }
     if (delta == 0 || s->period == 0) {
@@ -78,8 +78,8 @@ static void itimer_tick(void *opaque)
     itimer_trigger(s);
     
     if (s->enabled == 1) {
-        s->delta = s->compare;
-    } 
+        s->count = s->compare;
+    }
 
     itimer_reload(s);
 }
@@ -87,72 +87,69 @@ static void itimer_tick(void *opaque)
 uint64_t itimer_get_count(itimer_state *s)
 {
     uint64_t counter;
-    uint64_t delta = s->compare - s->delta;
+    uint64_t delta = s->compare - s->count;
 
-    if (delta == 0) {
-        counter =  s->compare;
-    } else if (s->enabled) {
+    if (s->enabled) {
         int64_t now = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
         int64_t next = s->next_event;
         bool expired = (now - next >= 0);
 
-        uint64_t rem;
-        uint64_t div;
-        int clz1, clz2;
-        int shift;
-        uint32_t period_frac = s->period_frac;
-        uint64_t period = s->period;
-
-        if ((delta * period < 10000) && !use_icount) {
-            period = 10000 / delta;
-            period_frac = 0;
-        }
-        /* We need to divide time by period, where time is stored in
-           rem (64-bit integer) and period is stored in period/period_frac
-           (64.32 fixed point).
-          
-           Doing full precision division is hard, so scale values and
-           do a 64-bit division.  The result should be rounded down,
-           so that the rounding error never causes the timer to go
-           backwards.
-        */
-       if (expired) {
-            rem = now - next;
-       } else {
-            rem = next - now;
-       }
-       
-        div = period;
-        clz1 = clz64(rem);
-        clz2 = clz64(div);
-        shift = clz1 < clz2 ? clz1 : clz2;
-        rem <<= shift;
-        div <<= shift;
-        if (shift >= 32) {
-            div |= ((uint64_t)period_frac << (shift - 32));
+        /* Figure out the current counter value.  */
+        if (expired || delta == 0) {
+            /* Prevent timer underflowing if it should already have
+               triggered.  */
+            counter = s->compare;
         } else {
-            if (shift != 0)
-                div |= (period_frac >> (32 - shift));
-            /* Look at remaining bits of period_frac and round div up if 
-               necessary.  */
-            if ((uint32_t)(period_frac << shift))
-                div += 1;
-        }
+            uint64_t rem;
+            uint64_t div;
+            int clz1, clz2;
+            int shift;
+            uint32_t period_frac = s->period_frac;
+            uint64_t period = s->period;
 
-        counter = rem / div;
-        if (expired) {
-            counter =  counter % 0xffffffff + s->compare;
-        }
+            if ((delta * period < 10000) && !use_icount) {
+                period = 10000 / delta;
+                period_frac = 0;
+            }
+            /* We need to divide time by period, where time is stored in
+               rem (64-bit integer) and period is stored in period/period_frac
+               (64.32 fixed point).
 
+               Doing full precision division is hard, so scale values and
+               do a 64-bit division.  The result should be rounded down,
+               so that the rounding error never causes the timer to go
+               backwards.
+            */
+            rem = next - now;
+
+            div = period;
+            clz1 = clz64(rem);
+            clz2 = clz64(div);
+            shift = clz1 < clz2 ? clz1 : clz2;
+            rem <<= shift;
+            div <<= shift;
+            if (shift >= 32) {
+                div |= ((uint64_t)period_frac << (shift - 32));
+            } else {
+                if (shift != 0)
+                    div |= (period_frac >> (32 - shift));
+                /* Look at remaining bits of period_frac and round div up if 
+                   necessary.  */
+                if ((uint32_t)(period_frac << shift))
+                    div += 1;
+            }
+
+            counter = s->compare - rem / div;
+        }
     } else {
-        counter = s->delta;
+        counter = s->count;
     }
     return counter;
 }
 
 void itimer_set_count(itimer_state *s, uint64_t count)
 {
-    s->delta = count;
+    s->count = count;
     if (s->enabled) {
         s->next_event = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
         itimer_reload(s);
@@ -181,7 +178,7 @@ void itimer_stop(itimer_state *s)
     if (!s->enabled)
         return;
 
-    s->delta = itimer_get_count(s);
+    s->count = itimer_get_count(s);
     timer_del(s->timer);
     s->enabled = 0;
 }
@@ -189,7 +186,7 @@ void itimer_stop(itimer_state *s)
 /* Set counter increment interval in nanoseconds.  */
 void itimer_set_period(itimer_state *s, int64_t period)
 {
-    s->delta = itimer_get_count(s);
+    s->count = itimer_get_count(s);
     s->period = period;
     s->period_frac = 0;
     if (s->enabled) {
@@ -201,7 +198,7 @@ void itimer_set_period(itimer_state *s, int64_t period)
 /* Set counter frequency in Hz.  */
 void itimer_set_freq(itimer_state *s, uint32_t freq)
 {
-    s->delta = itimer_get_count(s);
+    s->count = itimer_get_count(s);
     s->period = 1000000000ll / freq;
     s->period_frac = (1000000000ll << 32) / freq;
     if (s->enabled) {
@@ -213,7 +210,7 @@ void itimer_set_freq(itimer_state *s, uint32_t freq)
 /* Set compare value */
 void itimer_set_compare(itimer_state *s, uint32_t compare)
 {
-    s->delta = itimer_get_count(s);
+    s->count = itimer_get_count(s);
     s->compare = compare;
     if (s->enabled) {
         s->next_event = qemu_clock_get_ns(QEMU_CLOCK_VIRTUAL);
@@ -228,7 +225,7 @@ const VMStateDescription vmstate_itimer = {
     .fields = (VMStateField[]) {
         VMSTATE_UINT8(enabled, itimer_state),
         VMSTATE_UINT64(compare, itimer_state),
-        VMSTATE_UINT64(delta, itimer_state),
+        VMSTATE_UINT64(count, itimer_state),
         VMSTATE_UINT32(period_frac, itimer_state),
         VMSTATE_INT64(period, itimer_state),
         VMSTATE_INT64(last_event, itimer_state),

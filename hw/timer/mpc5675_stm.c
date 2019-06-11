@@ -17,12 +17,6 @@
 #define TYPE_STM "mpc5675-stm"
 #define STM(obj) OBJECT_CHECK(StmState, (obj), TYPE_STM)
 
-typedef struct CmpList
-{
-    uint32_t index;
-    uint32_t value;
-} CmpList;
-
 typedef struct StmState {
     /*< private >*/
     SysBusDevice parent_obj;
@@ -40,7 +34,7 @@ typedef struct StmState {
     uint32_t stm_cmp[4];  //STM Channel 0~3 Compare Register 
 
     uint32_t current_cmp;
-    CmpList current_cmplist[4];
+    uint32_t cmp_index_list[4];
 
     qemu_irq irq[4];
 } StmState;
@@ -57,47 +51,65 @@ static void stm_update(StmState *s)
     }
 }
 
+/* set next channel */
 static void update_channel(StmState *s)
 {
-    /* set next channel */
-    /* once stm_cnt is larger than cmps,
-     * it cause an overflow, and the next cmp is cmplist[0]
+    bool channel_enabled = false;
+    uint32_t min_index = 0;
+    /* 
+     * once stm_cnt is larger than cmps,
+     * it cause an overflow, and the next cmp is cmp_index_list[0]
      */
-    s->current_cmp = s->current_cmplist[0].index;
     for (int i = 0; i < 4; i++) {
-        if (s->stm_ccr[i] & 0x1) {
-            if (s->current_cmplist[i].value < itimer_get_count(s->timer)) {
-                continue;
+        if (s->stm_ccr[s->cmp_index_list[i]] & 0x1) {
+            channel_enabled = true;
+            if (!min_index) {
+                min_index = s->cmp_index_list[i];
+            }
+            if (s->stm_cmp[s->cmp_index_list[i]] > itimer_get_count(s->timer)) {
+                s->current_cmp = s->cmp_index_list[i];
+                break;
             } else {
-                s->current_cmp = s->current_cmplist[i].index;
+                s->current_cmp = min_index;
             }
         }
     }
 
-    itimer_set_compare(s->timer, s->stm_cmp[s->current_cmp]);
+    if (channel_enabled) {
+        itimer_set_compare(s->timer, s->stm_cmp[s->current_cmp]);
+    } else { // all channel disabled
+        itimer_set_compare(s->timer, 0xffffffff);
+        /* do not set interrupt */ 
+        s->current_cmp = 4; 
+    }
 }
 
 static void update_compare(StmState *s)
 {
+    uint32_t min_index, temp, index_temp;
     uint32_t cmp[4];
-    uint32_t mini, temp;
 
+    for (int i = 0; i < 4; i++)
+    {
+        s->cmp_index_list[i] = i;
+    }
+    
     memcpy(cmp, s->stm_cmp, sizeof(cmp));
 
-    /* update current compare list */
     for (int i = 0; i < 3; i++) {
-        mini = i;
-        for (int j = i+1; j < 4; j++) {
-            if (cmp[mini] > cmp[j]){
-                mini = j;
+        min_index = i;
+        for (int j = i + 1; j < 4; j++) {
+            if (cmp[min_index] > cmp[j]) {
+                min_index = j;
             }
         }
         temp = cmp[i];
-        cmp[i] = cmp[mini];
-        cmp[mini] = temp;
+        cmp[i] = cmp[min_index];
+        cmp[min_index] = temp;
 
-        s->current_cmplist[i].index = mini;
-        s->current_cmplist[i].value = cmp[i];
+        index_temp = s->cmp_index_list[i];
+        s->cmp_index_list[i] = s->cmp_index_list[min_index];
+        s->cmp_index_list[min_index] = index_temp;
     }
 
     update_channel(s);
@@ -222,6 +234,10 @@ static void stm_rest(DeviceState *d)
     StmState *s = STM(d);
 
     s->freq_base = 50 * 1000 * 1000;
+    for (int i = 0; i < 4; i++)
+    {
+        s->cmp_index_list[i] = i;
+    }
 }
 
 static void stm_init(Object *obj)
@@ -245,6 +261,7 @@ static void stm_init(Object *obj)
     s->freq_base = 50 * 1000 * 1000;
     freq = s->freq_base / (((s->stm_cr >> 8) & 0xff) + 1);
     itimer_set_freq(s->timer, freq);
+
 }
 
 static const VMStateDescription vmstate_stm = {
