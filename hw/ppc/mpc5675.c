@@ -26,6 +26,7 @@
 #include "qemu/cutils.h"
 #include "hw/loader.h"
 #include "hw/sysbus.h"
+#include "hw/char/mpc5675_linflexd.h"
 
 #define EPAPR_MAGIC                (0x45504150)
 #define MAX_CPUS 1
@@ -204,16 +205,14 @@ static void ppc_5675board_init(MachineState *machine)
                                 reset_exc[0], pic[28], NULL);
 
     /* LINFlexD 0~3 */
-    dev = sysbus_create_varargs("LINFlexD", 0xffe40000,
-                                pic[79], pic[80], pic[81], NULL);
-    dev = sysbus_create_varargs("LINFlexD", 0xffe44000,
-                                pic[99], pic[100], pic[101], NULL);
-    dev = sysbus_create_varargs("LINFlexD", 0xffe48000,
-                                pic[119], pic[120], pic[121], NULL);
-    dev = sysbus_create_varargs("LINFlexD", 0xffe4c000,
-                                pic[122], pic[123], pic[124], NULL);
+    linflexd_create(0xffe40000, pic[79], pic[80], pic[81], serial_hds[0]);
 
-    
+    linflexd_create(0xffe44000, pic[99], pic[100], pic[101], serial_hds[1]);
+
+    linflexd_create(0xffe48000, pic[119], pic[120], pic[121], serial_hds[2]);
+
+    linflexd_create(0xffe4c000, pic[122], pic[123], pic[124], serial_hds[3]);
+
     // /* intc1 external interrupt ivor4 */
     // dev = sysbus_create_varargs("mpc5675-intc", 0x8ff48000,
     //                             irq[1], NULL);
