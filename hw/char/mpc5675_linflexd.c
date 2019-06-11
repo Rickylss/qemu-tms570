@@ -126,7 +126,7 @@ static void update_baudrate(LinState *s)
     double lfdiv;
     int baudrate;
     
-    lfdiv = (s->lin_ibrr & 0xfffff) + (s->lin_fbrr & 0xf) / 16;
+    lfdiv = (s->lin_ibrr & 0xfffff) + (s->lin_fbrr & 0xf) / 16.0;
 
     if (lfdiv >= 1.5) {
         baudrate = (s->ipg_clock_lin * 1000 * 1000) / (16 * lfdiv);
@@ -287,21 +287,7 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
         if (s->mode == UART) {                                  //UART mode
             if (s->uart_cr & TXEN) {                            //open tx
                 if (s->uart_cr & TFBM && index == 0) {          //FIFO mode
-                    if (s->uart_cr & WL1) {                     //Halfword
-                        s->b_drl.w.bdr[0] = val & 0xffff;
-                        do {
-                            qemu_chr_fe_write(s->chr, s->b_drl.b.bdr, 2);
-                        } while (s->tx_count--);
-                    } else {                                    //Byte
-                        s->b_drl.b.bdr[0] = val & 0xff;
-                        do {
-                            qemu_chr_fe_write(s->chr, s->b_drl.b.bdr, 1);
-                        } while (s->tx_count--);
-                    }
-                    if (s->tx_count == 0) { //FIFO is full;
-                        s->uart_sr |= DTFTFF;
-                    }
-                    
+                    fprintf(stderr, "uart FIFO mode is not support yet\n");
                 } else if(s->uart_cr & TFBM && index != 0) {    // IPS transfer error
                     fprintf(stderr, "IPS transfer error");
                 } else {                                        //buffer mode
@@ -502,8 +488,11 @@ static void LINFlexD_put_fifo(void *opaque, uint32_t value)
     s->read_fifo[slot] = value;
     s->read_count++;
     s->uart_sr &= ~DRFRFE;
-    if (~(s->uart_cr & RXEN) || s->read_count == s->rx_count) {
+    if (!(s->uart_cr & RXEN) || (s->read_count == s->rx_count)) {
         s->uart_sr |= DRFRFE;
+        if ((s->uart_cr & TFBM) == 0) {
+            s->lin_ier |= 0x4;
+        }
     }
     LINFlexD_update_irq(s);
 
@@ -523,6 +512,7 @@ static void uart_timeout_tick(void *opaque)
 
     /* set timeout flag in UARTSR[TO] */
     s->uart_sr |= 0x8;
+    s->lin_ier |= 0x8;
     LINFlexD_update_irq(s); //timeout
 }
 
@@ -567,6 +557,7 @@ static const VMStateDescription vmstate_LINFlexD = {
 
 static Property LINFlexD_properties[] = {
     DEFINE_PROP_UINT32("ipg_clock_lin", LinState, ipg_clock_lin, 16),
+    DEFINE_PROP_CHR("chardev", LinState, chr),
     DEFINE_PROP_END_OF_LIST(),
 };
 
