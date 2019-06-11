@@ -144,7 +144,10 @@ static void update_baudrate(LinState *s)
 static void get_txrx_count(LinState *s)
 {
     if (s->uart_cr & RFBM) {                    //FIFO mode
-        s->rx_count = (s->uart_cr & RDFLRFC) >> 10; 
+        s->rx_count = (s->uart_cr & RDFLRFC) >> 10;
+        if (s->rx_count > 4) {
+            fprintf(stderr, "the receive FIFO counter is more than 4 bytes");
+        }
     } else {                                    //buffer mode
         s->rx_count = ((s->uart_cr & 0xc00) >> 10) + 1; 
         if ((s->uart_cr & WL1) && (s->rx_count == 1 || s->rx_count == 3)) {
@@ -154,6 +157,9 @@ static void get_txrx_count(LinState *s)
 
     if (s->uart_cr & TFBM) {                    //FIFO mode
         s->tx_count = (s->uart_cr & TDFLTFC) >> 13; 
+        if (s->tx_count > 4) {
+            fprintf(stderr, "the transmit FIFO counter is more than 4 bytes");
+        }
     } else {                                    //buffer mode
         s->tx_count = ((s->uart_cr & 0x6000) >> 13) + 1; 
         if ((s->uart_cr & WL1) && (s->tx_count == 1 || s->tx_count == 3)) {
@@ -164,13 +170,16 @@ static void get_txrx_count(LinState *s)
 
 static void LINFlexD_switch_operating_mode(LinState *s)
 {
-    if ((s->lin_cr1 & 0x3) == 0x2) {
-        s->operation_mode = SLEEP;
-    } else if((s->lin_cr1 & 0x3) == 0x0) {
-        s->operation_mode = NORMAL;
-    } else {
+    if (s->lin_cr1 & 0x1) {
         s->operation_mode = INIT;
         s->uart_sr &= ~0x200;
+        s->lin_sr &= ~(0xe << 12); //LIN state Initialization mode
+    } else if (s->lin_cr1 & 0x2) {
+        s->operation_mode = SLEEP;
+        s->lin_sr &= ~(0xf << 12); //LIN state Sleep mode
+        itimer_stop(s->timer);
+    } else {
+        s->operation_mode = NORMAL;
     }
 }
 
@@ -271,7 +280,7 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
         }
     }
 
-    /* BDRL */
+    /* BDRL uart transmitter*/
     if (offset >= 0x38 && offset < 0x3c) {
         int index = (offset - 0x38);
 
@@ -305,14 +314,12 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
                     }
                     if (s->tx_count == 0) {
                         qemu_chr_fe_write(s->chr, s->b_drl.b.bdr, 4);
-                        s->uart_sr |= DTFTFF; 
+                        s->uart_sr |= DTFTFF;
                     }  
 
                     LINFlexD_update_irq(s);         
                 }
             }
-
-
         }
     }
 
@@ -331,6 +338,7 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
         } else {
             s->lin_cr1 = val & 0x3;
         }
+        LINFlexD_switch_operating_mode(s);
         break;
     case 0x04: /* LINIER */
         s->lin_ier &= ~(val & 0xf9ff);
@@ -361,8 +369,7 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
                 get_txrx_count(s);
             } else {
                 s->mode = LIN;
-            }
-            
+            } 
         }
 
         if (s->uart_cr & RXEN) {
@@ -434,6 +441,15 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
         if (s->operation_mode == INIT)
         {
             s->gcr = val & 0x3f;
+        }
+
+        if (s->gcr & 0x1) { //soft reset
+            s->b_drl.r = 0x0;
+            s->b_drm = 0x0;
+            s->uart_sr = 0x0;
+            s->lin_sr = 0x40;
+            s->lin_esr = 0x0;
+            itimer_run(s->timer, 1);
         }
         break;
     case 0x90: /* UARTPTO */
