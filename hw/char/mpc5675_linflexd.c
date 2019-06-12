@@ -20,16 +20,24 @@
 #define UART_TXI_MASK 0x2
 #define UART_ERR_MASK 0xc1a8
 
-#define TDFLTFC 0x7 << 13
-#define RDFLRFC 0x7 << 10
-#define RFBM 1 << 9
-#define TFBM 1 << 8
-#define RXEN 1 << 5
-#define TXEN 1 << 4
-#define WL1 1 << 7
+#define TDFLTFC (0x7 << 13)
+#define RDFLRFC (0x7 << 10)
+#define RFBM (1 << 9)
+#define TFBM (1 << 8)
+#define RXEN (1 << 5)
+#define TXEN (1 << 4)
+#define WL1 (1 << 7)
 
-#define DRFRFE 1 << 2
-#define DTFTFF 1 << 1
+#define BOF (1 << 7)
+#define RMB (1 << 9)
+
+#define DRFRFE (1 << 2)
+#define DTFTFF (1 << 1)
+
+#define TDFBM (1 << 5)
+#define TRDFBM (1 << 4)
+#define TDLIS (1 << 3)
+#define RDLIS (1 << 2)
 
 /* three operating modes of LINFlexD controller */
 typedef enum {
@@ -77,7 +85,15 @@ typedef struct LinState {
         } w;
     } b_drl;
     int tx_count;
-    uint32_t b_drm;
+    union {
+        uint32_t r;
+        struct {
+            uint8_t bdr[4];
+        } b;
+        struct {
+            uint16_t bdr[2];
+        } w;
+    } b_drm;
     int rx_count;
     uint32_t if_er;
     uint32_t if_mi;
@@ -89,7 +105,7 @@ typedef struct LinState {
     uint32_t dma_txe;
     uint32_t dma_rxe;
 
-    uint32_t read_fifo[4];
+    uint8_t read_fifo[4];
     int read_pos;
     int read_count;
 
@@ -172,7 +188,7 @@ static void LINFlexD_switch_operating_mode(LinState *s)
 {
     if (s->lin_cr1 & 0x1) {
         s->operation_mode = INIT;
-        s->uart_sr &= ~0x200;
+        s->uart_sr &= ~RMB;
         s->lin_sr &= ~(0xe << 12); //LIN state Initialization mode
     } else if (s->lin_cr1 & 0x2) {
         s->operation_mode = SLEEP;
@@ -183,11 +199,42 @@ static void LINFlexD_switch_operating_mode(LinState *s)
     }
 }
 
+static void modify_data(LinState *s)
+{
+    if (s->gcr & TDBM) { // Transmit data first bit MSB
+        for (size_t i = 0; i < 4; i++) {
+            s->b_drl.b.bdr[i] = ( c & 0x55 ) << 1 | ( c & 0xAA ) >> 1;
+            s->b_drl.b.bdr[i] = ( c & 0x33 ) << 2 | ( c & 0xCC ) >> 2;
+            s->b_drl.b.bdr[i] = ( c & 0x0F ) << 4 | ( c & 0xF0 ) >> 4;
+        }
+    }
+
+    if (s->gcr & RDBM) { // Received data first bit MSB
+        for (size_t i = 0; i < 4; i++) {
+            s->b_drm.b.bdr[i] = ( c & 0x55 ) << 1 | ( c & 0xAA ) >> 1;
+            s->b_drm.b.bdr[i] = ( c & 0x33 ) << 2 | ( c & 0xCC ) >> 2;
+            s->b_drm.b.bdr[i] = ( c & 0x0F ) << 4 | ( c & 0xF0 ) >> 4;
+        }
+    }
+
+    if (s->gcr & TDLIS) { // Transmit data level inversion selection
+        
+        s->b_drl = ( c & 0x55 ) << 1 | ( c & 0xAA ) >> 1;
+        s->b_drl = ( c & 0x33 ) << 2 | ( c & 0xCC ) >> 2;
+        s->b_drl = ( c & 0x0F ) << 4 | ( c & 0xF0 ) >> 4;
+    }  
+    
+    if (s->gcr & RDLIS) { // Received data level inversion selection
+        s->b_drm = ( c & 0x55 ) << 1 | ( c & 0xAA ) >> 1;
+        s->b_drm = ( c & 0x33 ) << 2 | ( c & 0xCC ) >> 2;
+        s->b_drm = ( c & 0x0F ) << 4 | ( c & 0xF0 ) >> 4;
+    }
+}
+
 static uint64_t LINFlexD_read(void *opaque, hwaddr offset,
                            unsigned size)
 {
     LinState *s = (LinState *)opaque;
-    uint32_t c;
 
     /* IFCR0~15 */
     if (offset >= 0x4c && offset < 0x8c) {
@@ -227,22 +274,12 @@ static uint64_t LINFlexD_read(void *opaque, hwaddr offset,
     case 0x38: /* BDRL */
         return s->b_drl.r;
     case 0x3c: /* BDRM */
-        if (s->mode == UART)
+        if (s->mode == UART && s->uart_sr & RMB)
         {
-            s->uart_sr &= ~DRFRFE;
-            c = s->read_fifo[s->read_pos];
-            if (s->read_count > 0) {
-                s->read_count--;
-                if (++s->read_pos == s->rx_count)
-                    s->read_pos = 0;
-            }
-            LINFlexD_update_irq(s);
-            if (s->chr) {
-                qemu_chr_accept_input(s->chr);
-            }
-            return c;
+            memcpy(&s->b_drm.r, s->read_fifo, sizeof(s->read_fifo));
+            modify_data(s);
         }
-        return s->b_drm;
+        return s->b_drm.r;
     case 0x40: /* IFER */
         return s->if_er;
     case 0x44: /* IFMI */
@@ -327,7 +364,7 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
         LINFlexD_switch_operating_mode(s);
         break;
     case 0x04: /* LINIER */
-        s->lin_ier &= ~(val & 0xf9ff);
+        s->lin_ier |= val & 0xf9ff;
         break;
     case 0x08: /* LINSR */
         s->lin_sr &= ~(val & 0xf2ff);
@@ -468,8 +505,7 @@ static int LINFlexD_can_receive(void *opaque)
      * 2. Sets the UARTCR[RXEN] field.
      * 3. Detects the start bit of the data frame
      */
-    if ((s->uart_cr & RXEN) && (s->operation_mode == NORMAL))
-    {
+    if ((s->uart_cr & RXEN) && (s->operation_mode == NORMAL)) {
         return s->read_count < s->rx_count;
     } else {
         return 0;
@@ -487,23 +523,35 @@ static void LINFlexD_put_fifo(void *opaque, uint32_t value)
         slot -= s->rx_count;
     s->read_fifo[slot] = value;
     s->read_count++;
-    s->uart_sr &= ~DRFRFE;
     if (!(s->uart_cr & RXEN) || (s->read_count == s->rx_count)) {
         s->uart_sr |= DRFRFE;
-        if ((s->uart_cr & TFBM) == 0) {
-            s->lin_ier |= 0x4;
-        }
+        s->uart_sr |= RMB;
+        LINFlexD_update_irq(s);
     }
-    LINFlexD_update_irq(s);
-
     itimer_run(s->timer, 1);
 }
 
 static void LINFlexD_receive(void *opaque, const uint8_t *buf, int size)
 {   
+        
     LinState *s = (LinState *)opaque;
-    LINFlexD_put_fifo(opaque, *buf);
-    s->uart_sr |= 0x200;
+    /*
+     * A new byte has been received, but the last received
+     * frame has not been read from the buffer
+     */
+    if (s->uart_sr & RMB)
+    {
+        if (s->lin_cr1 & 0x4) { // Receive Buffer locked against overrun
+            s->uart_sr |= BOF;
+        } else {           // Receive Buffer not locked on overrun
+            s->read_fifo[s->rx_count - 1] = *buf;
+            s->uart_sr |= BOF;
+        }
+        LINFlexD_update_irq(s); // overrun interrupt
+    } else {
+        LINFlexD_put_fifo(opaque, *buf);
+    }
+
 }
 
 static void uart_timeout_tick(void *opaque) 
@@ -512,7 +560,6 @@ static void uart_timeout_tick(void *opaque)
 
     /* set timeout flag in UARTSR[TO] */
     s->uart_sr |= 0x8;
-    s->lin_ier |= 0x8;
     LINFlexD_update_irq(s); //timeout
 }
 
