@@ -35,7 +35,7 @@
 #define DTFTFF (1 << 1)
 
 #define TDFBM (1 << 5)
-#define TRDFBM (1 << 4)
+#define RDFBM (1 << 4)
 #define TDLIS (1 << 3)
 #define RDLIS (1 << 2)
 
@@ -105,7 +105,7 @@ typedef struct LinState {
     uint32_t dma_txe;
     uint32_t dma_rxe;
 
-    uint8_t read_fifo[4];
+    uint32_t read_fifo[4];
     int read_pos;
     int read_count;
 
@@ -199,35 +199,36 @@ static void LINFlexD_switch_operating_mode(LinState *s)
     }
 }
 
+static void inversion_8_bit(uint8_t *c) {
+    *c = ( *c & 0x55 ) << 1 | ( *c & 0xAA ) >> 1;
+    *c = ( *c & 0x33 ) << 2 | ( *c & 0xCC ) >> 2;
+    *c = ( *c & 0x0F ) << 4 | ( *c & 0xF0 ) >> 4;
+}
+
+static void inversion_32_bit(uint32_t *c) {
+
+}
+
 static void modify_data(LinState *s)
 {
-    if (s->gcr & TDBM) { // Transmit data first bit MSB
+    if (s->gcr & TDFBM) { // Transmit data first bit MSB
         for (size_t i = 0; i < 4; i++) {
-            s->b_drl.b.bdr[i] = ( c & 0x55 ) << 1 | ( c & 0xAA ) >> 1;
-            s->b_drl.b.bdr[i] = ( c & 0x33 ) << 2 | ( c & 0xCC ) >> 2;
-            s->b_drl.b.bdr[i] = ( c & 0x0F ) << 4 | ( c & 0xF0 ) >> 4;
+            inversion_8_bit(&s->b_drl.b.bdr[i]);
         }
     }
 
-    if (s->gcr & RDBM) { // Received data first bit MSB
+    if (s->gcr & RDFBM) { // Received data first bit MSB
         for (size_t i = 0; i < 4; i++) {
-            s->b_drm.b.bdr[i] = ( c & 0x55 ) << 1 | ( c & 0xAA ) >> 1;
-            s->b_drm.b.bdr[i] = ( c & 0x33 ) << 2 | ( c & 0xCC ) >> 2;
-            s->b_drm.b.bdr[i] = ( c & 0x0F ) << 4 | ( c & 0xF0 ) >> 4;
+            inversion_8_bit(&s->b_drm.b.bdr[i]);
         }
     }
 
     if (s->gcr & TDLIS) { // Transmit data level inversion selection
-        
-        s->b_drl = ( c & 0x55 ) << 1 | ( c & 0xAA ) >> 1;
-        s->b_drl = ( c & 0x33 ) << 2 | ( c & 0xCC ) >> 2;
-        s->b_drl = ( c & 0x0F ) << 4 | ( c & 0xF0 ) >> 4;
+        inversion_32_bit(&s->b_drl.r);
     }  
     
     if (s->gcr & RDLIS) { // Received data level inversion selection
-        s->b_drm = ( c & 0x55 ) << 1 | ( c & 0xAA ) >> 1;
-        s->b_drm = ( c & 0x33 ) << 2 | ( c & 0xCC ) >> 2;
-        s->b_drm = ( c & 0x0F ) << 4 | ( c & 0xF0 ) >> 4;
+        inversion_32_bit(&s->b_drm.r);
     }
 }
 
@@ -468,7 +469,7 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
 
         if (s->gcr & 0x1) { //soft reset
             s->b_drl.r = 0x0;
-            s->b_drm = 0x0;
+            s->b_drm.r = 0x0;
             s->uart_sr = 0x0;
             s->lin_sr = 0x40;
             s->lin_esr = 0x0;
@@ -513,7 +514,7 @@ static int LINFlexD_can_receive(void *opaque)
     
 }
 
-static void LINFlexD_put_fifo(void *opaque, uint32_t value)
+static void LINFlexD_put_fifo(void *opaque, uint8_t value)
 {
     LinState *s = (LinState *)opaque;
     int slot;
