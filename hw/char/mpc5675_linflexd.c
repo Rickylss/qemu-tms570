@@ -144,7 +144,7 @@ static void LINFlexD_update_irq(LinState *s)
 static void update_baudrate(LinState *s)
 {
     double lfdiv;
-    int baudrate;
+    int baudrate = 0;
     
     lfdiv = (s->lin_ibrr & 0xfffff) + (s->lin_fbrr & 0xf) / 16.0;
 
@@ -153,12 +153,12 @@ static void update_baudrate(LinState *s)
     } else {
         fprintf(stderr, "LFDIV must be greater than or equal to 1.5d");
     }
-    
     /* 
      * The timeout counter is clocked with the baud rate  
      * clock prescaled by a hard-wired scaling factor of 16
      */
-    itimer_set_freq(s->timer, baudrate/16);
+    if(baudrate)
+        itimer_set_freq(s->timer, baudrate/16);
 }
 
 static void get_txrx_count(LinState *s)
@@ -200,7 +200,7 @@ static void LINFlexD_switch_operating_mode(LinState *s)
         itimer_stop(s->timer);
     } else {
         s->operation_mode = NORMAL;
-        if (s->uart_cr & RXEN) {
+        if (s->uart_cr & RXEN && (s->lin_ibrr & 0xfffff) != 0) { //LIN clock disabled
             itimer_run(s->timer, 1);
         }
     }

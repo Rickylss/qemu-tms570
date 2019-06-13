@@ -161,8 +161,7 @@ static void intc_write(void *opaque, hwaddr offset, uint64_t val, unsigned size)
 
     if ( offset >= 0x20 && offset < 0x28) { // SSCIRn
         int index = offset - 0x20;
-        if (index < 8)
-        {
+        if (index < 8) {
             s->sscir[index] &= ~(val & 0x1);
             s->sscir[index] |= (val >> 1) & 0x1;
         }
@@ -211,14 +210,14 @@ static uint64_t intc_read(void *opaque, hwaddr offset, unsigned size)
     IntcState *s = opaque;
 
     if ( offset >= 0x20 && offset < 0x28) { // SSCIRn
-        int cir_index;
+        int clr_index;
         int index = (offset - 0x20) >> 2;
         int start_index = index * 4;
-        uint32_t ret;
+        uint32_t ret = 0;
         for (int i = 0; i < 4; i++) {
-            cir_index = start_index + i;
-            if (cir_index < 8) {
-                ret += s->pri[cir_index] << 8*(3-i);
+            clr_index = start_index + i;
+            if (clr_index < 8) {
+                ret += s->sscir[clr_index] << 8*(3-i);
             }
         }
         return ret & 0x01010101;
@@ -228,7 +227,7 @@ static uint64_t intc_read(void *opaque, hwaddr offset, unsigned size)
         int pri_index;
         int index = (offset - 0x40) >> 2;
         int start_index = index * 4;
-        uint32_t ret;
+        uint32_t ret = 0;
         for (int i = 0; i < 4; i++) {
             pri_index = start_index + i;
             if (pri_index < 337) {
