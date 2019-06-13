@@ -84,7 +84,7 @@ typedef struct LinState {
             uint16_t bdr[2];
         } w;
     } b_drl;
-    int tx_count;
+    uint8_t tx_count;
     union {
         uint32_t r;
         struct {
@@ -94,7 +94,7 @@ typedef struct LinState {
             uint16_t bdr[2];
         } w;
     } b_drm;
-    int rx_count;
+    uint8_t rx_count;
     uint32_t if_er;
     uint32_t if_mi;
     uint32_t if_mr;
@@ -105,9 +105,9 @@ typedef struct LinState {
     uint32_t dma_txe;
     uint32_t dma_rxe;
 
-    uint32_t read_fifo[4];
-    int read_pos;
-    int read_count;
+    uint8_t read_fifo[4];
+    uint8_t read_pos;
+    uint8_t read_count;
 
     OPMODE operation_mode;
     MODE mode;
@@ -598,7 +598,7 @@ static const VMStateDescription vmstate_LINFlexD = {
         VMSTATE_UINT32(uart_cto, LinState),
         VMSTATE_UINT32(dma_txe, LinState),
         VMSTATE_UINT32(dma_rxe, LinState),
-        VMSTATE_UINT32_ARRAY(if_cr, LinState,16),
+        VMSTATE_UINT32_ARRAY(if_cr, LinState, 16),
         VMSTATE_END_OF_LIST()
     }
 };
