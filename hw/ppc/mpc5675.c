@@ -225,13 +225,13 @@ static void ppc_5675board_init(MachineState *machine)
         if (machine->kernel_filename) {
             bios_name = machine->kernel_filename;
         } else {
-            // bios_name = "u-boot.e500";
+            bios_name = "u-boot.e500";
         }
     }
-    if(!bios_name){
-        fprintf(stderr,"qemu:not bios\n");
-        exit(1);
-    }
+    // if(!bios_name){
+    //     fprintf(stderr,"qemu:not bios\n");
+    //     exit(1);
+    // }
     filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
 
     bios_size = load_elf(filename, NULL, NULL, &bios_entry, &loadaddr, NULL,
