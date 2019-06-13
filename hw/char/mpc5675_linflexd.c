@@ -134,7 +134,11 @@ static void LINFlexD_update_irq(LinState *s)
         qemu_set_irq(s->irq[2], err_irq);
 
     }
-    
+
+    if (s->uart_sr & 0x8)
+    {
+        s->uart_sr &= ~0x8;
+    }
 }
 
 static void update_baudrate(LinState *s)
@@ -189,13 +193,16 @@ static void LINFlexD_switch_operating_mode(LinState *s)
     if (s->lin_cr1 & 0x1) {
         s->operation_mode = INIT;
         s->uart_sr &= ~RMB;
-        s->lin_sr &= ~(0xe << 12); //LIN state Initialization mode
+        s->lin_sr = (s->lin_sr & 0xffff0fff) | 0x1000; //LIN state Initialization mode
     } else if (s->lin_cr1 & 0x2) {
         s->operation_mode = SLEEP;
-        s->lin_sr &= ~(0xf << 12); //LIN state Sleep mode
+        s->lin_sr = s->lin_sr & 0xffff0fff; //LIN state Sleep mode
         itimer_stop(s->timer);
     } else {
         s->operation_mode = NORMAL;
+        if (s->uart_cr & RXEN) {
+            itimer_run(s->timer, 1);
+        }
     }
 }
 
@@ -275,10 +282,13 @@ static uint64_t LINFlexD_read(void *opaque, hwaddr offset,
     case 0x38: /* BDRL */
         return s->b_drl.r;
     case 0x3c: /* BDRM */
-        if (s->mode == UART && s->uart_sr & RMB)
-        {
+        if (s->mode == UART && s->uart_sr & RMB) {
             memcpy(&s->b_drm.r, s->read_fifo, sizeof(s->read_fifo));
             modify_data(s);
+            s->read_count -= s->rx_count;
+            if (s->chr) {
+                qemu_chr_accept_input(s->chr);
+            }
         }
         return s->b_drm.r;
     case 0x40: /* IFER */
@@ -340,18 +350,10 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
                 } else if(s->uart_cr & TFBM && index != 0) {    // IPS transfer error
                     fprintf(stderr, "IPS transfer error");
                 } else {                                        //buffer mode
-                    for (int i=0; i < size; i++) {
-                        if (index + i < 4) {
-                            s->b_drl.b.bdr[index + i] = (val >> i*8) & 0xff;
-                            if (index + i == 0)
-                                s->tx_count = 0;
-                        }
-                    }
-                    if (s->tx_count == 0) {
-                        qemu_chr_fe_write(s->chr, s->b_drl.b.bdr, 4);
-                        s->uart_sr |= DTFTFF;
-                        LINFlexD_update_irq(s);
-                    } 
+                    s->b_drl.r = val;
+                    qemu_chr_fe_write(s->chr, s->b_drl.b.bdr, s->tx_count);
+                    s->uart_sr |= DTFTFF;
+                    LINFlexD_update_irq(s);
                 }
             }
         }
@@ -367,12 +369,13 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
     
     switch (offset) {
     case 0x00: /* LINCR1 */
+        s->lin_cr1 = val & 0x3;
+        LINFlexD_switch_operating_mode(s);
+
         if (s->operation_mode == INIT) {
             s->lin_cr1 = val & 0xffff;
-        } else {
-            s->lin_cr1 = val & 0x3;
         }
-        LINFlexD_switch_operating_mode(s);
+
         break;
     case 0x04: /* LINIER */
         s->lin_ier |= val & 0xf9ff;
@@ -405,11 +408,6 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
                 s->mode = LIN;
             } 
         }
-
-        if (s->uart_cr & RXEN) {
-            itimer_run(s->timer, 1);
-        }
-        
         break;
     case 0x14: /* UARTSR */
         s->uart_sr &= ~(val & 0xffef);
@@ -509,6 +507,7 @@ static int LINFlexD_can_receive(void *opaque)
 {
     LinState *s = (LinState *)opaque;
 
+    itimer_set_count(s->timer, 0);
     /* 
      * Reception of a data byte is started as soon as the software 
      * completes the following tasks in order:
@@ -541,7 +540,6 @@ static void LINFlexD_put_fifo(void *opaque, uint8_t value)
             LINFlexD_update_irq(s);
         }
     }
-    itimer_run(s->timer, 1);
 }
 
 static void LINFlexD_receive(void *opaque, const uint8_t *buf, int size)
