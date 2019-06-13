@@ -325,7 +325,18 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
         if (s->mode == UART) {                                  //UART mode
             if (s->uart_cr & TXEN) {                            //open tx
                 if (s->uart_cr & TFBM && index == 0) {          //FIFO mode
-                    fprintf(stderr, "uart FIFO mode is not support yet\n");
+                    if (s->uart_cr & WL1) {                     //Halfword
+                        s->b_drl.w.bdr[0] = val & 0xffff;
+                        s->tx_count = 0;
+                        qemu_chr_fe_write(s->chr, s->b_drl.b.bdr, 2);
+                    } else {                                    //Byte
+                        s->b_drl.b.bdr[0] = val & 0xff;
+                        s->tx_count = 0;
+                        qemu_chr_fe_write(s->chr, s->b_drl.b.bdr, 1);
+                    }
+                    if (s->tx_count == 0) { //FIFO is full;
+                        s->uart_sr |= DTFTFF;
+                    }
                 } else if(s->uart_cr & TFBM && index != 0) {    // IPS transfer error
                     fprintf(stderr, "IPS transfer error");
                 } else {                                        //buffer mode
@@ -339,9 +350,8 @@ static void LINFlexD_write(void *opaque, hwaddr offset,
                     if (s->tx_count == 0) {
                         qemu_chr_fe_write(s->chr, s->b_drl.b.bdr, 4);
                         s->uart_sr |= DTFTFF;
-                    }  
-
-                    LINFlexD_update_irq(s);         
+                        LINFlexD_update_irq(s);
+                    } 
                 }
             }
         }
@@ -527,7 +537,9 @@ static void LINFlexD_put_fifo(void *opaque, uint8_t value)
     if (!(s->uart_cr & RXEN) || (s->read_count == s->rx_count)) {
         s->uart_sr |= DRFRFE;
         s->uart_sr |= RMB;
-        LINFlexD_update_irq(s);
+        if (!(s->uart_cr & RFBM)) { // while in uart fifo mode no interrupt generated
+            LINFlexD_update_irq(s);
+        }
     }
     itimer_run(s->timer, 1);
 }
