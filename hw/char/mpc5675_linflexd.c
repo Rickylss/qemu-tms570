@@ -507,7 +507,6 @@ static int LINFlexD_can_receive(void *opaque)
 {
     LinState *s = (LinState *)opaque;
 
-    itimer_set_count(s->timer, 0);
     /* 
      * Reception of a data byte is started as soon as the software 
      * completes the following tasks in order:
@@ -546,6 +545,7 @@ static void LINFlexD_receive(void *opaque, const uint8_t *buf, int size)
 {   
         
     LinState *s = (LinState *)opaque;
+    itimer_set_count(s->timer, 0);
     /*
      * A new byte has been received, but the last received
      * frame has not been read from the buffer
