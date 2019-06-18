@@ -1,0 +1,2 @@
+C:\home\software\cygwin252\home\foobar\qemu\ppc-compile-winxp\1\ppc-softmmu\qemu-system-ppc.exe -no-reboot -M mpc5675 -serial telnet:localhost:9000,server -serial -apptestaddr  C:\home\software\cygwin252\home\foobar\misc\ppc755\mytest\bios.bin,0xfff00000  -apptestaddr C:\home\software\cygwin252\home\foobar\misc\ppc755\Qemu755Test\os.bin,0x1000000  -s -S
+pause>nul
