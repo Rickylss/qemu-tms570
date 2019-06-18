@@ -41,6 +41,10 @@
 #endif
 
 #define RAM_SIZES_ALIGN            (64UL << 20)
+
+#define APPNAMELENGTH   100
+#define APPMAXCOUNT    30
+
 typedef struct {
     char appname[APPNAMELENGTH];
     uint32_t appaddr;
@@ -103,12 +107,12 @@ static void ppc_5675board_init(MachineState *machine)
     MemoryRegion *dram = g_new(MemoryRegion, 1);
     SysBusDevice *busdev;
     CPUPPCState *env = NULL;
-    uint64_t loadaddr;
-    int kernel_size = 0;
+    //uint64_t loadaddr;
+    //int kernel_size = 0;
     hwaddr dt_base = 0;
     char *filename;
-    hwaddr bios_entry = 0;
-    target_long bios_size;
+    //hwaddr bios_entry = 0;
+    //target_long bios_size;
     struct boot_info *boot_info;
     int i;
     CPUPPCState *firstenv = NULL;
@@ -176,7 +180,7 @@ static void ppc_5675board_init(MachineState *machine)
     memory_region_allocate_system_memory(dram, NULL, "mpc5675.dram", dram_size);
     memory_region_add_subregion(address_space_mem, 0x60000000, dram);
 
-    machine->ram_size = loadaddr + ebi_size + sram_size + dram_size;
+    machine->ram_size = flash_size + ebi_size + sram_size + dram_size;
 
     /* intc0 external interrupt ivor4 */
     dev = sysbus_create_varargs("mpc5675-intc", 0xfff48000,
