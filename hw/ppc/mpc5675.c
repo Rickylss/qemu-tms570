@@ -41,6 +41,14 @@
 #endif
 
 #define RAM_SIZES_ALIGN            (64UL << 20)
+typedef struct {
+    char appname[APPNAMELENGTH];
+    uint32_t appaddr;
+}APPinfo;
+
+extern APPinfo app[APPMAXCOUNT];
+extern int appcount;
+extern uint32_t apptestaddr;
 
 struct boot_info
 {
@@ -116,6 +124,7 @@ static void ppc_5675board_init(MachineState *machine)
 
     for (i = 0; i < smp_cpus; i++) {
         PowerPCCPU *cpu;
+
         cpu = cpu_ppc_init(machine->cpu_model);
         if (cpu == NULL) {
             fprintf(stderr, "Unable to initialize CPU!\n");
@@ -151,14 +160,6 @@ static void ppc_5675board_init(MachineState *machine)
     }
     env = firstenv;
 
-    /* Fixup Memory size on a alignment boundary */
-    // ram_size &= ~(RAM_SIZES_ALIGN - 1);
-    // fprintf(stderr,"ram_size:%lx\n",ram_size);
-    // machine->ram_size = ram_size;
-
-    /* Register Memory */
-    // memory_region_allocate_system_memory(ram, NULL, "mpc5675.ram", ram_size);
-    // memory_region_add_subregion(address_space_mem, 0x00000000, ram);
     uint64_t flash_size = 512*M_BYTE;
     memory_region_allocate_system_memory(flash, NULL, "mpc5675.flash", flash_size);
     memory_region_add_subregion(address_space_mem, 0x00000000, flash);
@@ -188,7 +189,7 @@ static void ppc_5675board_init(MachineState *machine)
     dev = sysbus_create_varargs("mpc5675-pit", 0xc3ff0000,
                                 pic[59], pic[60], pic[61], pic[127], NULL);
 
-    uint32_t freq_base = 50 * 1000 * 1000; // 5MHz
+    uint32_t freq_base = 50 * 1000 * 1000; // 50MHz
     stm = qdev_create(NULL, "mpc5675-stm");
     qdev_prop_set_uint32(stm, "freq_base", freq_base);
     qdev_init_nofail(stm);
@@ -221,51 +222,58 @@ static void ppc_5675board_init(MachineState *machine)
     //     pic[n] = qdev_get_gpio_in(dev, n);
     // }
 
-    if (bios_name == NULL) {
-        if (machine->kernel_filename) {
-            bios_name = machine->kernel_filename;
-        } else {
-            bios_name = "u-boot.e500";
+    int appindex=0;
+    int appsize=-1;
+    for(; appindex < appcount; appindex++){
+        appsize = load_image_targphys(app[appindex].appname,app[appindex].appaddr,machine->ram_size-app[appindex].appaddr);
+        if(appsize < 0){
+            hw_error("qemu:could not load app:%s\n",app[appindex].appname);
         }
     }
-    // if(!bios_name){
-    //     fprintf(stderr,"qemu:not bios\n");
-    //     exit(1);
-    // }
-    filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
 
-    bios_size = load_elf(filename, NULL, NULL, &bios_entry, &loadaddr, NULL,
-                         1, PPC_ELF_MACHINE, 0, 0);
-    if (bios_size < 0) {
-        /*
-         * Hrm. No ELF image? Try a uImage, maybe someone is giving us an
-         * ePAPR compliant kernel
-         */
-        kernel_size = load_uimage(filename, &bios_entry, &loadaddr, NULL,
-                                  NULL, NULL);
-        if (kernel_size < 0) {
-            int appsize=-1;
-            appsize = load_image_targphys(filename, 0, machine->ram_size);
-            bios_entry = 0x6c;
-            if(appsize < 0){
-                fprintf(stderr, "qemu: could not load firmware '%s'\n", filename);
-                exit(1);
-            }
-        }
-    }
-    g_free(filename);
+    // if (bios_name == NULL) {
+    //     if (machine->kernel_filename) {
+    //         bios_name = machine->kernel_filename;
+    //     } else {
+    //         bios_name = "u-boot.e500";
+    //     }
+    // }
+
+    // filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
+
+    // bios_size = load_elf(filename, NULL, NULL, &bios_entry, &loadaddr, NULL,
+    //                      1, PPC_ELF_MACHINE, 0, 0);
+    // if (bios_size < 0) {
+    //     /*
+    //      * Hrm. No ELF image? Try a uImage, maybe someone is giving us an
+    //      * ePAPR compliant kernel
+    //      */
+    //     kernel_size = load_uimage(filename, &bios_entry, &loadaddr, NULL,
+    //                               NULL, NULL);
+    //     if (kernel_size < 0) {
+    //         int appsize=-1;
+    //         appsize = load_image_targphys(filename, 0, machine->ram_size);
+    //         bios_entry = 0x6c;
+    //         if(appsize < 0){
+    //             fprintf(stderr, "qemu: could not load firmware '%s'\n", filename);
+    //             exit(1);
+    //         }
+    //     }
+    // }
+    // g_free(filename);
 
     boot_info = env->load_info;
-    boot_info->entry = bios_entry;
+    boot_info->entry = app[0].appaddr;
     boot_info->dt_base = dt_base;
 }
+
 static void ppc5675board_machine_init(MachineClass *mc)
 {
     mc->desc = "mpc5675 platform";
     mc->init = ppc_5675board_init;
     mc->max_cpus = 1;
     //mc->default_ram_size = 128 * M_BYTE;
-    mc->default_boot_order = "cadc";
+    mc->default_boot_order = "cad";
 }
 
-DEFINE_MACHINE("mpc5675",ppc5675board_machine_init)
+DEFINE_MACHINE("mpc5675", ppc5675board_machine_init)

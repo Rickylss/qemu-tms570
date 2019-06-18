@@ -3731,6 +3731,15 @@ STEXI
 prepend a timestamp to each log message.(default:on)
 ETEXI
 
+DEF("apptestaddr", HAS_ARG, QEMU_OPTION_apptestaddr, 
+    "-apptestaddr     enable hardware inputs",
+    QEMU_ARCH_ALL)
+STEXI 
+@item -apptestaddr
+@findex -apptestaddr 
+Enable apptestaddr inputs
+ETEXI
+
 DEF("dump-vmstate", HAS_ARG, QEMU_OPTION_dump_vmstate,
     "-dump-vmstate <file>\n"
     "                Output vmstate information in JSON format to file.\n"

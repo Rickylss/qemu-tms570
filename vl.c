@@ -25,7 +25,7 @@
 #include "qemu-version.h"
 #include "qemu/cutils.h"
 #include "qemu/help_option.h"
-
+#include <stdlib.h>
 #ifdef CONFIG_SECCOMP
 #include "sysemu/seccomp.h"
 #endif
@@ -210,6 +210,34 @@ static int default_sdcard = 1;
 static int default_vga = 1;
 static int default_net = 1;
 
+
+#define APPNAMELENGTH   100
+#define APPMAXCOUNT    30
+typedef struct {
+    char appname[APPNAMELENGTH];
+    uint32_t appaddr;
+}APPinfo;
+
+APPinfo app[APPMAXCOUNT];
+int appcount=0;
+uint32_t apptestaddr;
+static void getappinfo(const char* val){
+    int temp=0;
+    char addrtemp[10]={0};
+    memset(&app[appcount],0,sizeof(APPinfo));
+    while(*(val+temp) != ','){
+        app[appcount].appname[temp] = *(val+temp);
+        temp++;
+    }
+    temp++;
+    int tempindex=0;
+    while(*(val+temp)){
+        addrtemp[tempindex] = *(val+temp);
+        tempindex++;
+        temp++;
+    }
+    app[appcount].appaddr = strtol(addrtemp,(char**)&addrtemp,16);
+}
 static struct {
     const char *driver;
     int *flag;
@@ -3983,6 +4011,12 @@ int main(int argc, char **argv, char **envp)
                     error_report("open %s: %s", optarg, strerror(errno));
                     exit(1);
                 }
+                break;
+            case QEMU_OPTION_apptestaddr:
+                //fprintf(stderr,"optarg:%s\n",optarg);
+                getappinfo(optarg);
+                //fprintf(stderr,"app[%d].appname:%s\tappaddr:%x\n",appcount,app[appcount].appname,app[appcount].appaddr);
+                appcount++;
                 break;
             default:
                 os_parse_cmd_args(popt->index, optarg);
