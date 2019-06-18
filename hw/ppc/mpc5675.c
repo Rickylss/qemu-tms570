@@ -30,17 +30,15 @@
 
 #define EPAPR_MAGIC                (0x45504150)
 #define MAX_CPUS 1
-#define KERNEL_LOAD_ADDR 0x01000000
-#define BIOS_SIZE (1024 * 1024)
 #define RESET_TSIZE (2 << MAS1_TSIZE_SHIFT) // 0b00010 SIZE 4KB page size
 #define RESET_MAPSIZE (1ULL << 10 << 2)
-#if defined (TARGET_PPC64)
-#define PPC_ELF_MACHINE     EM_PPC64
-#else
-#define PPC_ELF_MACHINE     EM_PPC
-#endif
+// #if defined (TARGET_PPC64)
+// #define PPC_ELF_MACHINE     EM_PPC64
+// #else
+// #define PPC_ELF_MACHINE     EM_PPC
+// #endif
 
-#define RAM_SIZES_ALIGN            (64UL << 20)
+// #define RAM_SIZES_ALIGN            (64UL << 20)
 
 #define APPNAMELENGTH   100
 #define APPMAXCOUNT    30
@@ -164,7 +162,7 @@ static void ppc_5675board_init(MachineState *machine)
     }
     env = firstenv;
 
-    uint64_t flash_size = 512*M_BYTE;
+    uint64_t flash_size = 12*M_BYTE;
     memory_region_allocate_system_memory(flash, NULL, "mpc5675.flash", flash_size);
     memory_region_add_subregion(address_space_mem, 0x00000000, flash);
 
@@ -172,11 +170,11 @@ static void ppc_5675board_init(MachineState *machine)
     memory_region_allocate_system_memory(ebi, NULL, "mpc5675.ebi", ebi_size);
     memory_region_add_subregion(address_space_mem, 0x20000000, ebi);
 
-    uint64_t sram_size = 512*M_BYTE;
+    uint64_t sram_size = 256*M_BYTE;
     memory_region_allocate_system_memory(sram, NULL, "mpc5675.sram", sram_size);
     memory_region_add_subregion(address_space_mem, 0x40000000, sram);
 
-    uint64_t dram_size = 767*M_BYTE;
+    uint64_t dram_size = 256*M_BYTE;
     memory_region_allocate_system_memory(dram, NULL, "mpc5675.dram", dram_size);
     memory_region_add_subregion(address_space_mem, 0x60000000, dram);
 
