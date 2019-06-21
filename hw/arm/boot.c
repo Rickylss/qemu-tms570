@@ -772,6 +772,10 @@ static uint64_t arm_load_elf(struct arm_boot_info *info, uint64_t *pentry,
                  * tell the ELF loader to byte reverse the data for us.
                  */
                 data_swab = 2;
+                if (info->board_id == 0x3137) {
+                    info->endianness = ARM_ENDIANNESS_BE8;
+                    data_swab = 2;
+                }
             }
         } else {
             info->endianness = ARM_ENDIANNESS_LE;
