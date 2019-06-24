@@ -1220,7 +1220,7 @@ vaddr arm_adjust_watchpoint_address(CPUState *cs, vaddr addr, int len)
      * to account for that, which means that watchpoints will not match.
      * Undo the adjustment here.
      */
-    if (arm_sctlr_b(env)) {
+    if (arm_sctlr_b(env) || arm_tms570(env)) {
         if (len == 1) {
             addr ^= 3;
         } else if (len == 2) {

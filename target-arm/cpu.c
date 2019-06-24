@@ -441,7 +441,7 @@ static void arm_disas_set_info(CPUState *cpu, disassemble_info *info)
     } else {
         info->print_insn = print_insn_arm;
     }
-    if (bswap_code(arm_sctlr_b(env))) {
+    if (bswap_code(arm_sctlr_b(env) || arm_tms570(env))) {
 #ifdef TARGET_WORDS_BIGENDIAN
         info->endian = BFD_ENDIAN_LITTLE;
 #else
@@ -453,7 +453,7 @@ static void arm_disas_set_info(CPUState *cpu, disassemble_info *info)
         info->read_memory_func = arm_read_memory_func;
     }
     info->flags &= ~INSN_ARM_BE32;
-    if (arm_sctlr_b(env)) {
+    if (arm_sctlr_b(env) || arm_tms570(env)) {
         info->flags |= INSN_ARM_BE32;
     }
 }
@@ -1593,7 +1593,7 @@ static int arm_cpu_memory_rw_debug(CPUState *cpu, vaddr address,
     ARMCPU *armcpu = ARM_CPU(cpu);
     CPUARMState *env = &armcpu->env;
 
-    if (arm_sctlr_b(env)) {
+    if (arm_sctlr_b(env) || arm_tms570(env)) {
         target_ulong i;
         for (i = 0; i < len; i++) {
             cpu_memory_rw_debug(cpu, (addr + i) ^ 3, &buf[i], 1, is_write);

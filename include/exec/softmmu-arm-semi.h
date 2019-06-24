@@ -24,7 +24,7 @@ static inline bool arm_bswap_needed(CPUARMState *env)
 #ifdef HOST_WORDS_BIGENDIAN
 #error HOST_WORDS_BIGENDIAN is not supported for ARM semihosting at the moment.
 #else
-    return arm_sctlr_b(env) || arm_cpsr_e(env);
+    return arm_sctlr_b(env) || arm_cpsr_e(env) || arm_tms570(env);
 #endif
 }
 

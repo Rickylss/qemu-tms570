@@ -455,7 +455,7 @@ void cpu_loop(CPUX86State *env)
 
 #define get_user_code_u32(x, gaddr, env)                \
     ({ abi_long __r = get_user_u32((x), (gaddr));       \
-        if (!__r && bswap_code(arm_sctlr_b(env))) {     \
+        if (!__r && bswap_code(arm_sctlr_b(env) || arm_tms570(env))) {     \
             (x) = bswap32(x);                           \
         }                                               \
         __r;                                            \
@@ -463,7 +463,7 @@ void cpu_loop(CPUX86State *env)
 
 #define get_user_code_u16(x, gaddr, env)                \
     ({ abi_long __r = get_user_u16((x), (gaddr));       \
-        if (!__r && bswap_code(arm_sctlr_b(env))) {     \
+        if (!__r && bswap_code(arm_sctlr_b(env) || arm_tms570(env))) {     \
             (x) = bswap16(x);                           \
         }                                               \
         __r;                                            \
