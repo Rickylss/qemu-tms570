@@ -338,7 +338,7 @@ static void sci_reset(DeviceState *dev)
 static const MemoryRegionOps sci_ops = {
     .read = sci_read,
     .write = sci_write,
-    .endianness = DEVICE_BIG_ENDIAN,
+    .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
 static const VMStateDescription vmstate_sci = {
