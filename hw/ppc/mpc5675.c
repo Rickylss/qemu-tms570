@@ -126,7 +126,6 @@ static void ppc_5675board_init(MachineState *machine)
 
     for (i = 0; i < smp_cpus; i++) {
         PowerPCCPU *cpu;
-
         cpu = cpu_ppc_init(machine->cpu_model);
         if (cpu == NULL) {
             fprintf(stderr, "Unable to initialize CPU!\n");

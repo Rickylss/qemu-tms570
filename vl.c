@@ -123,6 +123,7 @@ int main(int argc, char **argv)
 #include "qapi/qmp/qerror.h"
 #include "sysemu/iothread.h"
 
+#include <stdlib.h>
 #define MAX_VIRTIO_CONSOLES 1
 #define MAX_SCLP_CONSOLES 1
 
@@ -210,7 +211,6 @@ static int default_sdcard = 1;
 static int default_vga = 1;
 static int default_net = 1;
 
-
 #define APPNAMELENGTH   100
 #define APPMAXCOUNT    30
 typedef struct {
@@ -223,9 +223,13 @@ int appcount=0;
 uint32_t apptestaddr;
 static void getappinfo(const char* val){
     int temp=0;
-    char addrtemp[10]={0};
+    char addrtemp[20]={0};
     memset(&app[appcount],0,sizeof(APPinfo));
     while(*(val+temp) != ','){
+        if(temp>APPNAMELENGTH){
+            error_report("error! app namelength too long\n");
+            abort();
+        }
         app[appcount].appname[temp] = *(val+temp);
         temp++;
     }
@@ -236,7 +240,8 @@ static void getappinfo(const char* val){
         tempindex++;
         temp++;
     }
-    app[appcount].appaddr = strtol(addrtemp,(char**)&addrtemp,16);
+    // fprintf(stderr,"addrtemp:%s\n",addrtemp);
+    app[appcount].appaddr = strtoul(addrtemp,NULL,16);
 }
 static struct {
     const char *driver;
@@ -4013,9 +4018,9 @@ int main(int argc, char **argv, char **envp)
                 }
                 break;
             case QEMU_OPTION_apptestaddr:
-                //fprintf(stderr,"optarg:%s\n",optarg);
+                // fprintf(stderr,"optarg:%s\n",optarg);
                 getappinfo(optarg);
-                //fprintf(stderr,"app[%d].appname:%s\tappaddr:%x\n",appcount,app[appcount].appname,app[appcount].appaddr);
+                // fprintf(stderr,"app[%d].appname:%s\tappaddr:%x\n",appcount,app[appcount].appname,app[appcount].appaddr);
                 appcount++;
                 break;
             default:
