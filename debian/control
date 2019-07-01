@@ -1,0 +1,15 @@
+Source: smartvirdebug
+Section: devel
+Priority: optional
+Maintainer: root <root@unknown>
+Build-Depends: debhelper (>=9),autotools-dev
+Standards-Version: 3.9.6
+Homepage: http://www.formal-tech.com/
+#Vcs-Git: git://anonscm.debian.org/collab-maint/smartvirdebug.git
+#Vcs-Browser: https://anonscm.debian.org/cgit/collab-maint/smartvirdebug.git
+
+Package: smartvirdebug
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: <insert up to 60 chars description>
+ <insert long description, indented with spaces>
