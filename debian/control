@@ -2,7 +2,7 @@ Source: smartvirdebug
 Section: devel
 Priority: optional
 Maintainer: haibiao xiao <haibiao.xiao@formal-tech.com>
-Build-Depends: debhelper (>=9),autotools-dev
+Build-Depends: debhelper (>=9),autotools-dev,git,libglib2.0-dev,libfdt-dev,libpixman-1-dev,zlib1g-dev
 Standards-Version: 3.9.6
 Homepage: http://www.formal-tech.com/
 #Vcs-Git: git://anonscm.debian.org/collab-maint/smartvirdebug.git
@@ -11,5 +11,4 @@ Homepage: http://www.formal-tech.com/
 Package: smartvirdebug
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: <insert up to 60 chars description>
- <insert long description, indented with spaces>
+Description: A virtual debug tool for embedded system

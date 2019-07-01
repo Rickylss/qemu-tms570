@@ -13,8 +13,13 @@ else
                disable='--disable-docs --disable-gnutls --disable-curl --disable-libssh2 --disable-pie'
                enable='--enable-gtk --enable-sdl'
                ;;
-        MSYS_NT-*) target='arm-softmmu,ppc-softmmu'
+        MSYS_NT-7*) target='arm-softmmu,ppc-softmmu'
                cross='i686-w64-mingw32-'
+               disable=''
+               enable='--enable-gtk --enable-sdl --python=/usr/bin/python2'
+               ;;
+        MSYS_NT-10*) target='arm-softmmu,ppc-softmmu'
+               cross='x86_64-w64-mingw32-'
                disable=''
                enable='--enable-gtk --enable-sdl --python=/usr/bin/python2'
                ;;
