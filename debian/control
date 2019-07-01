@@ -1,7 +1,7 @@
 Source: smartvirdebug
 Section: devel
 Priority: optional
-Maintainer: root <root@unknown>
+Maintainer: haibiao xiao <haibiao.xiao@formal-tech.com>
 Build-Depends: debhelper (>=9),autotools-dev
 Standards-Version: 3.9.6
 Homepage: http://www.formal-tech.com/
