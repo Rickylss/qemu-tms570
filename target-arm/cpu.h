@@ -2109,7 +2109,11 @@ static inline bool arm_singlestep_active(CPUARMState *env)
 static inline bool arm_tms570(CPUARMState *env)
 {
     const struct arm_boot_info *info = env->boot_info;
-    return info->board_id == 0x3137;
+    if (info) {
+        return info->board_id == 0x3137;
+    }
+    
+    return false;
 }
 
 static inline bool arm_sctlr_b(CPUARMState *env)

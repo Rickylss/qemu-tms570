@@ -6,7 +6,7 @@ else
         Linux) target='arm-softmmu,arm-linux-user,ppc-softmmu,ppc-linux-user'
                cross=''
                disable=''
-               enable=''
+               enable='--enable-debug'
                ;;
         CYGWIN_NT-5.1) target='arm-softmmu,ppc-softmmu'
                cross='i686-w64-mingw32-'
@@ -41,7 +41,11 @@ else
     make -j4 install
 
     cd $installpath/bin
-    export OLD_PATH=$PATH
+    if [ -z "$OLD_PATH"];then
+        export OLD_PATH=$PATH
+    else
+        echo "OLD_PATH already set"
+    fi
     export PATH=$OLD_PATH:`pwd`
     echo $PATH
 fi 
