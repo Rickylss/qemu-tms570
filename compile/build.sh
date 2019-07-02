@@ -41,7 +41,7 @@ else
     make -j4 install
 
     cd $installpath/bin
-    if [ -z "$OLD_PATH"];then
+    if [ -z "$OLD_PATH" ];then
         export OLD_PATH=$PATH
     else
         echo "OLD_PATH already set"

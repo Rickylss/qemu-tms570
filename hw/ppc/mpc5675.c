@@ -81,7 +81,7 @@ static void ppc_5675_reset(void *opaque)
 
     cpu_reset(cs);
 
-    fprintf(stderr,"bios entry:%x\n",bi->entry);
+    //fprintf(stderr,"bios entry:%x\n",bi->entry);
         /* Set initial guest state. */
     cs->halted = 0;
     env->gpr[1] = (16<<20) - 8;
