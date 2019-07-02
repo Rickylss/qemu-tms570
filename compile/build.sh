@@ -21,7 +21,7 @@ else
         MSYS_NT-10*) target='arm-softmmu,ppc-softmmu'
                cross='x86_64-w64-mingw32-'
                disable=''
-               enable='--enable-gtk --enable-sdl --python=/usr/bin/python2'
+               enable='--disable-werror --enable-gtk --enable-sdl --python=/usr/bin/python2'
                ;;
         *) return
         ;;
