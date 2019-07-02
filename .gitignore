@@ -63,7 +63,8 @@
 *.dvi
 *.exe
 *.msi
-*.dll
+!/compile/*.dll
+/*.dll
 *.so
 *.mo
 *.fn
