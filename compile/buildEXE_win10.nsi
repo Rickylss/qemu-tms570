@@ -38,6 +38,8 @@ SetCompressor lzma
 ; Reserve files
 !insertmacro MUI_RESERVEFILE_INSTALLOPTIONS
 
+!include "WordFunc.nsh"
+
 ; MUI end ------
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
@@ -50,6 +52,9 @@ Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
   SetOverwrite ifnewer
   File /a /r "C:\msys64\code\qemu-compile\win\qemu-install\*.*"
+  SetOverwrite ifnewer
+  SetOutPath "$INSTDIR\bin"
+  File "C:\msys64\code\qemu\compile\qemu-mingw64-dll\*.*"
 SectionEnd
 
 Section -Post
@@ -60,18 +65,18 @@ Section -Post
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
   ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
-  WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$0;$INSTDIR"
+  WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$0;$INSTDIR\bin"
   SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment"
 SectionEnd
 
 
 Function un.onUninstSuccess
   HideWindow
-  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) ÒÑ³É¹¦µØ´ÓÄãµÄ¼ÆËã»úÒÆ³ı¡£"
+  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) å·²æˆåŠŸåœ°ä»ä½ çš„è®¡ç®—æœºç§»é™¤ã€‚"
 FunctionEnd
 
 Function un.onInit
-  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "ÄãÈ·ÊµÒªÍêÈ«ÒÆ³ı $(^Name) £¬Æä¼°ËùÓĞµÄ×é¼ş£¿" IDYES +2
+  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "ä½ ç¡®å®è¦å®Œå…¨ç§»é™¤ $(^Name) ï¼Œå…¶åŠæ‰€æœ‰çš„ç»„ä»¶ï¼Ÿ" IDYES +2
   Abort
 FunctionEnd
 
@@ -79,8 +84,13 @@ Section Uninstall
   Delete "$INSTDIR\uninst.exe"
   Delete "$INSTDIR\*.*"
 
-  RMDir "$INSTDIR"
+  RMDir /r "$INSTDIR"
 
   DeleteRegKey ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}"
+  ReadRegStr $R0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
+  ${WordReplace} $R0 ";$INSTDIR\bin" "" "+" $R1
+  ;MessageBox MB_OK|MB_USERICON '$R0 - $INSTDIR - $R1 '
+  WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$R1"
+  SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment"
   SetAutoClose true
 SectionEnd

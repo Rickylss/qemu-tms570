@@ -6,7 +6,7 @@ else
         Linux) target='arm-softmmu,arm-linux-user,ppc-softmmu,ppc-linux-user'
                cross=''
                disable=''
-               enable='--enable-debug'
+               enable=''
                ;;
         CYGWIN_NT-5.1) target='arm-softmmu,ppc-softmmu'
                cross='i686-w64-mingw32-'
@@ -37,7 +37,7 @@ else
     mkdir -p $buildpath
     cd $buildpath
 
-    $srcpath --prefix=$installpath --target-list=$target --cross-prefix=$cross $enable $disable  #--enable-debug     
+    $srcpath --prefix=$installpath --bindir=$installpath/bin --target-list=$target --cross-prefix=$cross $enable $disable  #--enable-debug     
     make -j4 install
 
     cd $installpath/bin
