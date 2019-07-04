@@ -1057,17 +1057,28 @@ void arm_load_app(ARMCPU *cpu, struct arm_boot_info *info)
 {
     CPUState *cs;
 
-    info->load_kernel_notifier.cpu = cpu;
-    info->load_kernel_notifier.notifier.notify = arm_load_kernel_notify;
-    qemu_add_machine_init_done_notifier(&info->load_kernel_notifier.notifier);
+    int appindex = 0;
+    int appsize = -1;
+    int data_swab = 0;
 
-    int appindex=0;
-    int appsize=-1;
+    if (info->board_id == 0x3137)
+    {
+        data_swab = 2;
+    }
+    
     for(; appindex < appcount; appindex++){
-        appsize = load_image_targphys(app[appindex].appname,app[appindex].appaddr,info->ram_size-app[appindex].appaddr);
+        appsize = load_image_swab_targphys(app[appindex].appname,app[appindex].appaddr,info->ram_size-app[appindex].appaddr, data_swab);
         if(appsize < 0){
             hw_error("qemu:could not load app:%s\n",app[appindex].appname);
         }
+    }
+
+    info->entry = 0x0;
+    info->is_linux = 0;
+    //info->kernel_filename = app[0].appname;
+    
+    for (cs = CPU(cpu); cs; cs = CPU_NEXT(cs)) {
+        ARM_CPU(cs)->env.boot_info = info;
     }
     /* CPU objects (unlike devices) are not automatically reset on system
      * reset, so we must always register a handler to do so. If we're

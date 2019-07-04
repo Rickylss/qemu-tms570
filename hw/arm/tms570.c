@@ -188,6 +188,7 @@ static void tms570_init(MachineState *machine,
     tms570_binfo.kernel_cmdline = machine->kernel_cmdline;
     tms570_binfo.initrd_filename = machine->initrd_filename;
     tms570_binfo.board_id = realview_board_id[board_type];
+    tms570_binfo.endianness = ARM_ENDIANNESS_BE8;
     //arm_load_kernel(cpu, &tms570_binfo);
     arm_load_app(cpu, &tms570_binfo);
 }

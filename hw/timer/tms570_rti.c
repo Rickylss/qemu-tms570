@@ -455,7 +455,7 @@ static void rti_reset(DeviceState *dev)
 static const MemoryRegionOps rti_ops = {
     .read = rti_read,
     .write = rti_write,
-    .endianness = DEVICE_BIG_ENDIAN,
+    .endianness = DEVICE_NATIVE_ENDIAN,
 };
 
 static void rti_timer_tick(void *opaque)
