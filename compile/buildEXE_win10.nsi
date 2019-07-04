@@ -64,8 +64,8 @@ Section -Post
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
-  ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
-  WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$0;$INSTDIR\bin"
+; ReadRegStr $0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
+  WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "QEMU_PATH" "$INSTDIR\bin"
   SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment"
 SectionEnd
 
@@ -87,10 +87,10 @@ Section Uninstall
   RMDir /r "$INSTDIR"
 
   DeleteRegKey ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}"
-  ReadRegStr $R0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
-  ${WordReplace} $R0 ";$INSTDIR\bin" "" "+" $R1
-  ;MessageBox MB_OK|MB_USERICON '$R0 - $INSTDIR - $R1 '
-  WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path" "$R1"
+; ReadRegStr $R0 HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "Path"
+; ${WordReplace} $R0 ";$INSTDIR\bin" "" "+" $R1
+; MessageBox MB_OK|MB_USERICON '$R0 - $INSTDIR - $R1 '
+  WriteRegExpandStr HKLM "SYSTEM\CurrentControlSet\Control\Session Manager\Environment" "QEMU_Path" ""
   SendMessage ${HWND_BROADCAST} ${WM_WININICHANGE} 0 "STR:Environment"
   SetAutoClose true
 SectionEnd
