@@ -105,14 +105,10 @@ static void ppc_5675board_init(MachineState *machine)
     MemoryRegion *dram = g_new(MemoryRegion, 1);
     SysBusDevice *busdev;
     CPUPPCState *env = NULL;
-    //uint64_t loadaddr;
-    //int kernel_size = 0;
     hwaddr dt_base = 0;
-    //char *filename;
-    //hwaddr bios_entry = 0;
-    //target_long bios_size;
     struct boot_info *boot_info;
     int i;
+    uint32_t reset_vector = 0;
     CPUPPCState *firstenv = NULL;
     DeviceState *dev, *stm;
     qemu_irq irq[2];
@@ -187,6 +183,7 @@ static void ppc_5675board_init(MachineState *machine)
         pic[n] = qdev_get_gpio_in(dev, n);
     }
 
+    /* PIT */
     dev = sysbus_create_varargs("mpc5675-pit", 0xc3ff0000,
                                 pic[59], pic[60], pic[61], pic[127], NULL);
 
@@ -225,6 +222,13 @@ static void ppc_5675board_init(MachineState *machine)
 
     int appindex=0;
     int appsize=-1;
+
+    appsize = load_image_bam_targphys(app[0].appname,app[0].appaddr,machine->ram_size-app[0].appaddr, &reset_vector);
+    if(appsize < 0){
+        hw_error("qemu:could not load app:%s\n",app[appindex].appname);
+    }
+    appindex++;
+
     for(; appindex < appcount; appindex++){
         appsize = load_image_targphys(app[appindex].appname,app[appindex].appaddr,machine->ram_size-app[appindex].appaddr);
         if(appsize < 0){
@@ -232,39 +236,8 @@ static void ppc_5675board_init(MachineState *machine)
         }
     }
 
-    // if (bios_name == NULL) {
-    //     if (machine->kernel_filename) {
-    //         bios_name = machine->kernel_filename;
-    //     } else {
-    //         bios_name = "u-boot.e500";
-    //     }
-    // }
-
-    // filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, bios_name);
-
-    // bios_size = load_elf(filename, NULL, NULL, &bios_entry, &loadaddr, NULL,
-    //                      1, PPC_ELF_MACHINE, 0, 0);
-    // if (bios_size < 0) {
-    //     /*
-    //      * Hrm. No ELF image? Try a uImage, maybe someone is giving us an
-    //      * ePAPR compliant kernel
-    //      */
-    //     kernel_size = load_uimage(filename, &bios_entry, &loadaddr, NULL,
-    //                               NULL, NULL);
-    //     if (kernel_size < 0) {
-    //         int appsize=-1;
-    //         appsize = load_image_targphys(filename, 0, machine->ram_size);
-    //         bios_entry = 0x6c;
-    //         if(appsize < 0){
-    //             fprintf(stderr, "qemu: could not load firmware '%s'\n", filename);
-    //             exit(1);
-    //         }
-    //     }
-    // }
-    // g_free(filename);
-
     boot_info = env->load_info;
-    boot_info->entry = app[0].appaddr;
+    boot_info->entry = reset_vector;
     boot_info->dt_base = dt_base;
 }
 
