@@ -42,7 +42,7 @@ SetCompressor lzma
 
 ; MUI end ------
 
-Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
+Name "${PRODUCT_NAME}_win10_${PRODUCT_VERSION}.exe"
 OutFile "SmartVirDebugTool_setup.exe"
 InstallDir "$PROGRAMFILES\SmartVirDebugTool"
 ShowInstDetails show
@@ -54,7 +54,7 @@ Section "MainSection" SEC01
   File /a /r "C:\msys64\code\qemu-compile\win\qemu-install\*.*"
   SetOverwrite ifnewer
   SetOutPath "$INSTDIR\bin"
-  File "C:\msys64\code\qemu\compile\qemu-mingw64-dll\*.*"
+  File "C:\msys64\code\qemu\compile\qemu-mingw64-dll-win10\*.*"
 SectionEnd
 
 Section -Post
