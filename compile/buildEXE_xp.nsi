@@ -41,7 +41,7 @@ SetCompressor lzma
 ; MUI end ------
 
 Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
-OutFile "Setup.exe"
+OutFile "${PRODUCT_NAME}_winxp_${PRODUCT_VERSION}.exe"
 InstallDir "$PROGRAMFILES\SmartVirDebugTool"
 ShowInstDetails show
 ShowUnInstDetails show
@@ -49,7 +49,10 @@ ShowUnInstDetails show
 Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
   SetOverwrite ifnewer
-  File /a /r "C:\home\software\cygwin252\home\mydir4qemubinary\*.*"
+  File /a /r "C:\home\software\cygwin252\home\qemu-compile\winxp\qemu-install\*.*"
+  SetOverwrite ifnewer
+  SetOutPath "$INSTDIR\bin"
+  File "C:\home\software\cygwin252\home\qemu\compile\qemu-mingw64-dll-winxp\*.*"
 SectionEnd
 
 Section -Post
@@ -67,11 +70,11 @@ SectionEnd
 
 Function un.onUninstSuccess
   HideWindow
-  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) å·²æˆåŠŸåœ°ä»ä½ çš„è®¡ç®—æœºç§»é™¤ã€‚"
+  MessageBox MB_ICONINFORMATION|MB_OK "$(^Name) ÒÑ³É¹¦µØ´ÓÄãµÄ¼ÆËã»úÒÆ³ı¡£"
 FunctionEnd
 
 Function un.onInit
-  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "ä½ ç¡®å®è¦å®Œå…¨ç§»é™¤ $(^Name) ï¼Œå…¶åŠæ‰€æœ‰çš„ç»„ä»¶ï¼Ÿ" IDYES +2
+  MessageBox MB_ICONQUESTION|MB_YESNO|MB_DEFBUTTON2 "ÄãÈ·ÊµÒªÍêÈ«ÒÆ³ı $(^Name) £¬Æä¼°ËùÓĞµÄ×é¼ş£¿" IDYES +2
   Abort
 FunctionEnd
 
