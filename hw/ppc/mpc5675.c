@@ -222,15 +222,12 @@ static void ppc_5675board_init(MachineState *machine)
 
     int appindex=0;
     int appsize=-1;
-
-    appsize = load_image_bam_targphys(app[0].appname,app[0].appaddr,machine->ram_size-app[0].appaddr, &reset_vector);
-    if(appsize < 0){
-        hw_error("qemu:could not load app:%s\n",app[appindex].appname);
-    }
-    appindex++;
-
     for(; appindex < appcount; appindex++){
-        appsize = load_image_targphys(app[appindex].appname,app[appindex].appaddr,machine->ram_size-app[appindex].appaddr);
+        if (app[0].appaddr == 0) {
+            appsize = load_image_bam_targphys(app[0].appname,app[0].appaddr,machine->ram_size-app[0].appaddr, &reset_vector);
+        } else {
+            appsize = load_image_targphys(app[appindex].appname,app[appindex].appaddr,machine->ram_size-app[appindex].appaddr);
+        }
         if(appsize < 0){
             hw_error("qemu:could not load app:%s\n",app[appindex].appname);
         }
