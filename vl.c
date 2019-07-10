@@ -1886,7 +1886,7 @@ void qemu_system_debug_request(void)
 void qemu_system_add_app(const char *path, uint32_t addr)
 {
     //getappinfo();
-    printf("qemu_system_add_app!!\n");
+    //printf("qemu_system_add_app!!\n");
     int appsize = -1;
     MachineClass *mc = MACHINE_GET_CLASS(qdev_get_machine());
 
