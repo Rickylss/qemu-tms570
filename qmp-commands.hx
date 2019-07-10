@@ -5039,3 +5039,28 @@ Example for pc machine type started with
             "props": {"core-id": 0, "socket-id": 0, "thread-id": 0}
          }
        ]}
+
+
+EQMP
+
+    {
+        .name       = "add_app",
+        .args_type  = "path:s,addr:i",
+        .mhandler.cmd_new = qmp_marshal_add_app,
+    },
+
+SQMP
+add_app
+----
+
+add Applications
+
+Arguments: 
+
+- "path": application binary path (json-string)
+- "addr": application load addr (json-int)
+
+Example:
+
+-> { "execute": "add_app", "arguments": { "path": "/path/to/app", "addr": 0 } }
+<- { "return": {} }

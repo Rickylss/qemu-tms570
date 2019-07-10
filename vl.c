@@ -1883,6 +1883,12 @@ void qemu_system_debug_request(void)
     qemu_notify_event();
 }
 
+void qemu_system_add_app(const char *path, uint32_t addr)
+{
+    //getappinfo();
+    printf("qemu_system_add_app!!\n");
+}
+
 static bool main_loop_should_exit(void)
 {
     RunState r;

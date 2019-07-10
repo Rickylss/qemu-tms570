@@ -711,3 +711,13 @@ ACPIOSTInfoList *qmp_query_acpi_ospm_status(Error **errp)
 
     return head;
 }
+
+void qmp_add_app(const char *path, uint32_t addr, Error **errp)
+{
+    printf("hello qemu\n");
+    printf("app_path:%s ; app_addr:%u\n", path, addr);
+    qemu_system_add_app(path, addr);
+    //getappinfo();
+    //load_app_for_618();
+    //appsize = load_image_swab_targphys(app[appindex].appname,app[appindex].appaddr,info->ram_size-app[appindex].appaddr, data_swab);
+}

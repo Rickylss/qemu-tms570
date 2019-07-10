@@ -4338,3 +4338,19 @@
 # Since: 2.7
 ##
 { 'command': 'query-hotpluggable-cpus', 'returns': ['HotpluggableCPU'] }
+
+##
+# @add-app
+#
+#@app_path: application binary path
+#@app_addr: application load addr
+#
+# Returns: nothing on success.
+#
+# Since: 2.7
+##
+{ 'command': 'add_app',
+  'data': { 'path': 'str',
+            'addr': 'uint32'
+          } 
+}

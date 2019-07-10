@@ -1760,3 +1760,16 @@ ETEXI
 STEXI
 @end table
 ETEXI
+
+    {
+        .name       = "add_app",
+        .args_type  = "path:s,addr:i",
+        .params     = "path addr",
+        .help       = "add application",
+        .mhandler.cmd = hmp_add_app,
+    },
+
+STEXI
+@item add-app @var{path} @var{addr}
+add applications.
+ETEXI

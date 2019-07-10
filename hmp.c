@@ -2447,3 +2447,12 @@ void hmp_hotpluggable_cpus(Monitor *mon, const QDict *qdict)
 
     qapi_free_HotpluggableCPUList(saved);
 }
+
+void hmp_add_app(Monitor *mon, const QDict *qdict)
+{
+    const char *path = qdict_get_str(qdict, "path");
+    uint32_t addr = qdict_get_int(qdict, "addr");
+    Error *err = NULL;
+
+    qmp_add_app(path, addr, &err);
+}
