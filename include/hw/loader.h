@@ -143,6 +143,8 @@ void rom_reset_order_override(void);
 int rom_copy(uint8_t *dest, hwaddr addr, size_t size);
 void *rom_ptr(hwaddr addr);
 void hmp_info_roms(Monitor *mon, const QDict *qdict);
+void unset_roms_loaded(void);
+void do_rom_reset(void);
 
 #define rom_add_file_fixed(_f, _a, _i)          \
     rom_add_file(_f, NULL, _a, _i, false, NULL)

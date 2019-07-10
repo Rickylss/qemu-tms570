@@ -1887,6 +1887,23 @@ void qemu_system_add_app(const char *path, uint32_t addr)
 {
     //getappinfo();
     printf("qemu_system_add_app!!\n");
+    int appsize = -1;
+    MachineClass *mc = MACHINE_GET_CLASS(qdev_get_machine());
+
+    /* it is dangerous to unset roms_loaded*/
+    unset_roms_loaded();
+
+    if (!strcmp(mc->name, "tms570-ls3137")) {
+        appsize = load_image_swab_targphys(path,addr,current_machine->ram_size - addr, 2);
+    } else {
+        appsize = load_image_targphys(path,addr,current_machine->ram_size - addr);
+    }
+
+    if(appsize < 0){
+        hw_error("qemu:could not load app:%s\n",path);
+    }
+
+    do_rom_reset();
 }
 
 static bool main_loop_should_exit(void)

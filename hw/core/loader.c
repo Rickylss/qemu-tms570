@@ -1300,6 +1300,17 @@ static void rom_reset(void *unused)
     }
 }
 
+void unset_roms_loaded(void)
+{
+    roms_loaded = 0;
+}
+
+void do_rom_reset(void)
+{
+    void *opaque = 0;
+    rom_reset(opaque);
+}
+
 int rom_check_and_register_reset(void)
 {
     hwaddr addr = 0;
