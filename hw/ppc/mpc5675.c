@@ -233,6 +233,10 @@ static void ppc_5675board_init(MachineState *machine)
         }
     }
 
+    if(reset_vector == 0xdead){
+        hw_error("qemu:could not set reset vector\n");
+    }
+
     boot_info = env->load_info;
     boot_info->entry = reset_vector;
     boot_info->dt_base = dt_base;

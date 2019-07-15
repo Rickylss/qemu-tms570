@@ -1006,6 +1006,7 @@ int rom_add_bam_file(const char *file, const char *fw_dir,
     int rc, fd = -1;
     uint8_t *data = NULL;
     char devpath[100];
+    *reset_vector = 0xdead;
 
     rom = g_malloc0(sizeof(*rom));
     rom->name = g_strdup(file);
@@ -1045,10 +1046,9 @@ int rom_add_bam_file(const char *file, const char *fw_dir,
     }
     close(fd);
 
-    for (int i = 0; i < BAM_BLOCK_NUM; i++) {
+    for (int i = 0; (i < BAM_BLOCK_NUM && BAM_block_address[i] < rom->datasize); i++) {
         uint8_t *dp = data + BAM_block_address[i];
-        if (bswap32(*(uint32_t *)dp) == 0x005a0000)
-        {
+        if (bswap32(*(uint32_t *)dp) == 0x005a0000) {
             *reset_vector = bswap32(*(uint32_t *)(dp + 0x4));
             break;
         }
