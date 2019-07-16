@@ -9496,28 +9496,59 @@ static int gdb_get_mmu_reg(CPUPPCState* env,uint8_t * mem_buf,int n)
  //  printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
     if(n<4){
         stl_p(mem_buf, env->IBAT[0][n]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
         return 4;
     }else if(n<8){
         stl_p(mem_buf,env->IBAT[1][n-4]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
         return 4;
     }else if(n<12){
         stl_p(mem_buf,env->DBAT[0][n-8]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
         return 4;
     }else if(n<16){
         stl_p(mem_buf,env->DBAT[1][n-12]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
         return 4;
     }else if(n<32){
         stl_p(mem_buf,env->sr[n-16]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
         return 4;
     }else if(n == 32){
         stl_p(mem_buf,env->spr[SPR_SDR1]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
         return 4;
     }
     return 0;
 }
 static int gdb_set_mmu_reg(CPUPPCState* env,uint8_t* mem_buf,int n)
 {
-    printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
+//    printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
+    if(n<4){
+        ppc_maybe_bswap_register(env, mem_buf, 4);
+        env->IBAT[0][n] = ldl_p(mem_buf);
+        return 4;
+    }else if(n<8){
+        ppc_maybe_bswap_register(env, mem_buf, 4);
+        env->IBAT[0][n-4] = ldl_p(mem_buf);
+        return 4;
+    }else if(n<12){
+        ppc_maybe_bswap_register(env, mem_buf, 4);
+        env->IBAT[0][n-8] = ldl_p(mem_buf);
+        return 4;
+    }else if(n<16){
+        ppc_maybe_bswap_register(env, mem_buf, 4);
+        env->DBAT[1][n-12] = ldl_p(mem_buf);
+        return 4;
+    }else if(n<32){
+        ppc_maybe_bswap_register(env, mem_buf, 4);
+        env->sr[n-16] = ldl_p(mem_buf);
+        return 4;
+    }else if(n == 32){
+        ppc_maybe_bswap_register(env, mem_buf, 4);
+        env->spr[SPR_SDR1] = ldl_p(mem_buf);
+        return 4;
+    }
     return 0;
 }
 static int gdb_get_ex_reg(CPUPPCState* env,uint8_t * mem_buf,int n)
@@ -9525,22 +9556,48 @@ static int gdb_get_ex_reg(CPUPPCState* env,uint8_t * mem_buf,int n)
  //   printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
     if(n<4){
         stl_p(mem_buf, (uint32_t)env->spr[SPR_SPRG0+n]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
         return 4;
     }else if(n == 4){
         stl_p(mem_buf, (uint32_t)env->spr[SPR_DAR]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
         return 4;
     }else if(n == 5){
         stl_p(mem_buf, (uint32_t)env->spr[SPR_DSISR]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
         return 4;
     }else if(n < 8){
         stl_p(mem_buf, (uint32_t)env->spr[SPR_SRR0+n-6]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
         return 4;
     }
     return 0;
 }
+
 static int gdb_set_ex_reg(CPUPPCState* env,uint8_t* mem_buf,int n)
 {
-    printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
+//    printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
+    if(n<4){
+   //     stl_p(mem_buf, (uint32_t)env->spr[SPR_SPRG0+n]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
+        env->spr[SPR_SPRG0+n] = ldl_p(mem_buf);
+        return 4;
+    }else if(n == 4){
+        //stl_p(mem_buf, (uint32_t)env->spr[SPR_DAR]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
+        env->spr[SPR_DAR] = ldl_p(mem_buf);
+        return 4;
+    }else if(n == 5){
+        //stl_p(mem_buf, (uint32_t)env->spr[SPR_DSISR]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
+        env->spr[SPR_DSISR] = ldl_p(mem_buf);
+        return 4;
+    }else if(n < 8){
+      //  stl_p(mem_buf, (uint32_t)env->spr[SPR_SRR0+n-6]);
+        ppc_maybe_bswap_register(env, mem_buf, 4);
+        env->spr[SPR_SRR0+n-6] = ldl_p(mem_buf);
+        return 4;
+    }
     return 0;
 }
 static int ppc_fixup_cpu(PowerPCCPU *cpu)
