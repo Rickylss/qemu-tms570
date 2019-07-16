@@ -9618,6 +9618,58 @@ static int gdb_set_vsx_reg(CPUPPCState *env, uint8_t *mem_buf, int n)
     return 0;
 }
 
+static int gdb_get_mmu_reg(CPUPPCState* env,uint8_t * mem_buf,int n)
+{
+ //  printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
+    if(n<4){
+        stl_p(mem_buf, env->IBAT[0][n]);
+        return 4;
+    }else if(n<8){
+        stl_p(mem_buf,env->IBAT[1][n-4]);
+        return 4;
+    }else if(n<12){
+        stl_p(mem_buf,env->DBAT[0][n-8]);
+        return 4;
+    }else if(n<16){
+        stl_p(mem_buf,env->DBAT[1][n-12]);
+        return 4;
+    }else if(n<32){
+        stl_p(mem_buf,env->sr[n-16]);
+        return 4;
+    }else if(n == 32){
+        stl_p(mem_buf,env->spr[SPR_SDR1]);
+        return 4;
+    }
+    return 0;
+}
+static int gdb_set_mmu_reg(CPUPPCState* env,uint8_t* mem_buf,int n)
+{
+    printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
+    return 0;
+}
+static int gdb_get_ex_reg(CPUPPCState* env,uint8_t * mem_buf,int n)
+{
+ //   printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
+    if(n<4){
+        stl_p(mem_buf, (uint32_t)env->spr[SPR_SPRG0+n]);
+        return 4;
+    }else if(n == 4){
+        stl_p(mem_buf, (uint32_t)env->spr[SPR_DAR]);
+        return 4;
+    }else if(n == 5){
+        stl_p(mem_buf, (uint32_t)env->spr[SPR_DSISR]);
+        return 4;
+    }else if(n < 8){
+        stl_p(mem_buf, (uint32_t)env->spr[SPR_SRR0+n-6]);
+        return 4;
+    }
+    return 0;
+}
+static int gdb_set_ex_reg(CPUPPCState* env,uint8_t* mem_buf,int n)
+{
+    printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
+    return 0;
+}
 static int ppc_fixup_cpu(PowerPCCPU *cpu)
 {
     CPUPPCState *env = &cpu->env;
@@ -9736,6 +9788,14 @@ static void ppc_cpu_realizefn(DeviceState *dev, Error **errp)
                                  32, "power-vsx.xml", 0);
     }
 
+    if(pcc->insns_flags & PPC_6xx_TLB){
+        gdb_register_coprocessor(cs, gdb_get_mmu_reg, gdb_set_mmu_reg,
+                                 33, "power-mmu.xml", 0);
+    }
+    if(pcc->insns_flags & PPC_INSNS_BASE){
+        gdb_register_coprocessor(cs, gdb_get_ex_reg, gdb_set_ex_reg,
+                                 8, "power-ex.xml", 0);
+    }
     qemu_init_vcpu(cs);
 
     pcc->parent_realize(dev, errp);
