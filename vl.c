@@ -122,7 +122,7 @@ int main(int argc, char **argv)
 #include "sysemu/replay.h"
 #include "qapi/qmp/qerror.h"
 #include "sysemu/iothread.h"
-
+#include "user/app.h"
 #include <stdlib.h>
 #define MAX_VIRTIO_CONSOLES 1
 #define MAX_SCLP_CONSOLES 1
@@ -211,16 +211,9 @@ static int default_sdcard = 1;
 static int default_vga = 1;
 static int default_net = 1;
 
-#define APPNAMELENGTH   256
-#define APPMAXCOUNT    30
-typedef struct {
-    char appname[APPNAMELENGTH];
-    uint32_t appaddr;
-}APPinfo;
-
 APPinfo app[APPMAXCOUNT];
 int appcount=0;
-uint32_t apptestaddr;
+
 static void getappinfo(const char* val){
     int temp=0;
     char addrtemp[20]={0};
@@ -229,6 +222,7 @@ static void getappinfo(const char* val){
         if(temp>APPNAMELENGTH){
             hw_error("error! app namelength too long\n");
             exit(1);
+            //abort();
         }
         app[appcount].appname[temp] = *(val+temp);
         temp++;
@@ -240,7 +234,6 @@ static void getappinfo(const char* val){
         tempindex++;
         temp++;
     }
-    // fprintf(stderr,"addrtemp:%s\n",addrtemp);
     app[appcount].appaddr = strtoul(addrtemp,NULL,16);
 }
 static struct {

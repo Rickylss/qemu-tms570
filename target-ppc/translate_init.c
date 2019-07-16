@@ -9678,6 +9678,7 @@ static int gdb_set_mmu_reg(CPUPPCState* env,uint8_t* mem_buf,int n)
     }
     return 0;
 }
+
 static int gdb_get_ex_reg(CPUPPCState* env,uint8_t * mem_buf,int n)
 {
  //   printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
