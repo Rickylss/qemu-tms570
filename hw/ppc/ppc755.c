@@ -43,6 +43,7 @@
 #include "hw/sysbus.h"
 #include "hw/char/pl011.h"
 #include "hw/char/pc16552d.h"
+#include "user/app.h"
 #define MAX_CPUS 1
 #define KERNEL_LOAD_ADDR 0x01000000
 #define BIOS_SIZE 0x7fffff      //8Mbyte
@@ -52,16 +53,7 @@
 #define PPC_ELF_MACHINE     EM_PPC
 #endif
 
-#define APPNAMELENGTH   100
-#define APPMAXCOUNT    30
-typedef struct {
-    char appname[APPNAMELENGTH];
-    uint32_t appaddr;
-}APPinfo;
 
-extern APPinfo app[APPMAXCOUNT];
-extern int appcount;
-extern uint32_t apptestaddr;
 static void ppc_755_reset(void *opaque)
 {
     PowerPCCPU *cpu = opaque;
@@ -103,7 +95,8 @@ static void ppc_755board_init(MachineState *machine)
     uint64_t temp=0;
     char ram_name[20]={0};
     int index = 0;
-    while(ram_size > 0){   
+    int ram_size_0 = ram_size;
+    while(ram_size_0 > 0){   
         ram = g_new(MemoryRegion, 1);
         temp = (!(ram_size%(128*M_BYTE)))?128*M_BYTE:ram_size%(128*M_BYTE);
         // fprintf(stderr,"offset:%lx   ram_size_temp:%lx\n",offset,temp);
@@ -111,7 +104,7 @@ static void ppc_755board_init(MachineState *machine)
         sprintf(ram_name,"ppc_prep.ram.%d",index);
         memory_region_allocate_system_memory(ram, NULL, (const char*)ram_name,temp);
         memory_region_add_subregion(sysmem, offset, ram);
-        ram_size -= 128*M_BYTE;
+        ram_size_0 -= 128*M_BYTE;
         offset += 128*M_BYTE;
         index ++;
     }
