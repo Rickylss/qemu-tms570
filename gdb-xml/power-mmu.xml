@@ -1,0 +1,44 @@
+<?xml version="1.0"?>
+<!-- Copyright (C) 2007, 2008 Free Software Foundation, Inc.
+
+     Copying and distribution of this file, with or without modification,
+     are permitted in any medium without royalty provided the copyright
+     notice and this notice are preserved.  -->
+
+<!DOCTYPE feature SYSTEM "gdb-target.dtd">
+<feature name="org.gnu.gdb.power.mmu">
+  <reg name="IBAT0U" bitsize="32" type="uint32" regnum="104"/>
+  <reg name="IBAT1U" bitsize="32" type="uint32"/>
+  <reg name="IBAT2U" bitsize="32" type="uint32"/>
+  <reg name="IBAT3U" bitsize="32" type="uint32"/>
+  <reg name="IBAT0L" bitsize="32" type="uint32"/>
+  <reg name="IBAT1L" bitsize="32" type="uint32"/>
+  <reg name="IBAT2L" bitsize="32" type="uint32"/>
+  <reg name="IBAT3L" bitsize="32" type="uint32"/>
+  <reg name="DBAT0U" bitsize="32" type="uint32"/>
+  <reg name="DBAT1U" bitsize="32" type="uint32"/>
+  <reg name="DBAT2U" bitsize="32" type="uint32"/>
+  <reg name="DBAT3U" bitsize="32" type="uint32"/>
+  <reg name="DBAT0L" bitsize="32" type="uint32"/>
+  <reg name="DBAT1L" bitsize="32" type="uint32"/>
+  <reg name="DBAT2L" bitsize="32" type="uint32"/>
+  <reg name="DBAT3L" bitsize="32" type="uint32"/>
+  <reg name="SR0" bitsize="32" type="uint32"/>
+  <reg name="SR1" bitsize="32" type="uint32"/>
+  <reg name="SR2" bitsize="32" type="uint32"/>
+  <reg name="SR3" bitsize="32" type="uint32"/>
+  <reg name="SR4" bitsize="32" type="uint32"/>
+  <reg name="SR5" bitsize="32" type="uint32"/>
+  <reg name="SR6" bitsize="32" type="uint32"/>
+  <reg name="SR7" bitsize="32" type="uint32"/>
+  <reg name="SR8" bitsize="32" type="uint32"/>
+  <reg name="SR9" bitsize="32" type="uint32"/>
+  <reg name="SR10" bitsize="32" type="uint32"/>
+  <reg name="SR11" bitsize="32" type="uint32"/>
+  <reg name="SR12" bitsize="32" type="uint32"/>
+  <reg name="SR13" bitsize="32" type="uint32"/>
+  <reg name="SR14" bitsize="32" type="uint32"/>
+  <reg name="SR15" bitsize="32" type="uint32"/>
+  <reg name="SDR1" bitsize="32" type="uint32"/>
+  
+</feature>

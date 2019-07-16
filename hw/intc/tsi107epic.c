@@ -801,7 +801,7 @@ static const MemoryRegionOps tsi107_config_addr_ops = {
 };
 static uint64_t tsi107config_data_read(void* opaque,hwaddr offset,unsigned int size)
 {
-    uint64_t res;
+    uint64_t res = 0;
     tsi107EPICState* s = opaque;
     switch(offset){
         case 0:
