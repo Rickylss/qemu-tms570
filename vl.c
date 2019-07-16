@@ -211,7 +211,7 @@ static int default_sdcard = 1;
 static int default_vga = 1;
 static int default_net = 1;
 
-#define APPNAMELENGTH   100
+#define APPNAMELENGTH   256
 #define APPMAXCOUNT    30
 typedef struct {
     char appname[APPNAMELENGTH];
@@ -227,8 +227,8 @@ static void getappinfo(const char* val){
     memset(&app[appcount],0,sizeof(APPinfo));
     while(*(val+temp) != ','){
         if(temp>APPNAMELENGTH){
-            error_report("error! app namelength too long\n");
-            abort();
+            hw_error("error! app namelength too long\n");
+            exit(1);
         }
         app[appcount].appname[temp] = *(val+temp);
         temp++;
