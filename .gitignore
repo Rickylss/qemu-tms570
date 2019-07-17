@@ -117,3 +117,4 @@ TAGS
 docker-src.*
 *~
 .vscode
+*.po
