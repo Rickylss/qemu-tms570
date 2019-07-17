@@ -1758,7 +1758,8 @@ ETEXI
     },
 
 STEXI
-@end table
+@item add-app @var{path} @var{addr}
+add applications.
 ETEXI
 
     {
@@ -1770,6 +1771,5 @@ ETEXI
     },
 
 STEXI
-@item add-app @var{path} @var{addr}
-add applications.
+@end table
 ETEXI
