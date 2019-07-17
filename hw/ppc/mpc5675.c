@@ -27,6 +27,7 @@
 #include "hw/loader.h"
 #include "hw/sysbus.h"
 #include "hw/char/mpc5675_linflexd.h"
+#include "user/app.h"
 
 #define EPAPR_MAGIC                (0x45504150)
 #define MAX_CPUS 1
@@ -39,18 +40,6 @@
 // #endif
 
 // #define RAM_SIZES_ALIGN            (64UL << 20)
-
-#define APPNAMELENGTH   100
-#define APPMAXCOUNT    30
-
-typedef struct {
-    char appname[APPNAMELENGTH];
-    uint32_t appaddr;
-}APPinfo;
-
-extern APPinfo app[APPMAXCOUNT];
-extern int appcount;
-extern uint32_t apptestaddr;
 
 struct boot_info
 {

@@ -21,17 +21,7 @@
 #include "sysemu/device_tree.h"
 #include "qemu/config-file.h"
 #include "exec/address-spaces.h"
-
-#define APPNAMELENGTH   100
-#define APPMAXCOUNT    30
-typedef struct {
-    char appname[APPNAMELENGTH];
-    uint32_t appaddr;
-}APPinfo;
-
-extern APPinfo app[APPMAXCOUNT];
-extern int appcount;
-extern uint32_t apptestaddr;
+#include "user/app.h"
 
 /* Kernel boot protocol is specified in the kernel docs
  * Documentation/arm/Booting and Documentation/arm64/booting.txt

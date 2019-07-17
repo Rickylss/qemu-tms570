@@ -9618,6 +9618,7 @@ static int gdb_set_vsx_reg(CPUPPCState *env, uint8_t *mem_buf, int n)
     return 0;
 }
 
+#if !defined(CONFIG_USER_ONLY)
 static int gdb_get_mmu_reg(CPUPPCState* env,uint8_t * mem_buf,int n)
 {
  //  printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
@@ -9648,6 +9649,7 @@ static int gdb_get_mmu_reg(CPUPPCState* env,uint8_t * mem_buf,int n)
     }
     return 0;
 }
+
 static int gdb_set_mmu_reg(CPUPPCState* env,uint8_t* mem_buf,int n)
 {
 //    printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
@@ -9728,6 +9730,8 @@ static int gdb_set_ex_reg(CPUPPCState* env,uint8_t* mem_buf,int n)
     }
     return 0;
 }
+#endif
+
 static int ppc_fixup_cpu(PowerPCCPU *cpu)
 {
     CPUPPCState *env = &cpu->env;
@@ -9845,15 +9849,17 @@ static void ppc_cpu_realizefn(DeviceState *dev, Error **errp)
         gdb_register_coprocessor(cs, gdb_get_vsx_reg, gdb_set_vsx_reg,
                                  32, "power-vsx.xml", 0);
     }
-
+#if !defined(CONFIG_USER_ONLY)
     if(pcc->insns_flags & PPC_6xx_TLB){
         gdb_register_coprocessor(cs, gdb_get_mmu_reg, gdb_set_mmu_reg,
                                  33, "power-mmu.xml", 0);
     }
+
     if(pcc->insns_flags & PPC_INSNS_BASE){
         gdb_register_coprocessor(cs, gdb_get_ex_reg, gdb_set_ex_reg,
                                  8, "power-ex.xml", 0);
     }
+#endif
     qemu_init_vcpu(cs);
 
     pcc->parent_realize(dev, errp);
