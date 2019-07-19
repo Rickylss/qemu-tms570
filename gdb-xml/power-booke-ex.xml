@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+<!-- Copyright (C) 2007, 2008 Free Software Foundation, Inc.
+
+     Copying and distribution of this file, with or without modification,
+     are permitted in any medium without royalty provided the copyright
+     notice and this notice are preserved.  -->
+
+<!DOCTYPE feature SYSTEM "gdb-target.dtd">
+<feature name="org.gnu.gdb.power.mmu">
+  <reg name="SPRG0" bitsize="32" type="uint32" regnum="117" />
+  <reg name="SPRG1" bitsize="32" type="uint32" />
+  <reg name="SPRG2" bitsize="32" type="uint32" />
+  <reg name="SPRG3" bitsize="32" type="uint32" />
+  <reg name="SPRG4" bitsize="32" type="uint32" />
+  <reg name="SPRG5" bitsize="32" type="uint32" />
+  <reg name="SPRG6" bitsize="32" type="uint32" />
+  <reg name="SPRG7" bitsize="32" type="uint32" />
+  <reg name="SPRG8" bitsize="32" type="uint32" />
+  <reg name="SPRG9" bitsize="32" type="uint32" />
+  <reg name="IVOR0" bitsize="32" type="uint32" />
+  <reg name="IVOR1" bitsize="32" type="uint32" />
+  <reg name="IVOR2" bitsize="32" type="uint32" />
+  <reg name="IVOR3" bitsize="32" type="uint32" />
+  <reg name="IVOR4" bitsize="32" type="uint32" />
+  <reg name="IVOR5" bitsize="32" type="uint32" />
+  <reg name="IVOR6" bitsize="32" type="uint32" />
+  <reg name="IVOR7" bitsize="32" type="uint32" />
+  <reg name="IVOR8" bitsize="32" type="uint32" />
+  <reg name="IVOR9" bitsize="32" type="uint32" />
+  <reg name="IVOR10" bitsize="32" type="uint32" />
+  <reg name="IVOR11" bitsize="32" type="uint32" />
+  <reg name="IVOR12" bitsize="32" type="uint32" />
+  <reg name="IVOR13" bitsize="32" type="uint32" />
+  <reg name="IVOR14" bitsize="32" type="uint32" />
+  <reg name="IVOR15" bitsize="32" type="uint32" />
+  <reg name="IVOR16" bitsize="32" type="uint32" />
+  <reg name="IVOR17" bitsize="32" type="uint32" />
+  <reg name="IVOR18" bitsize="32" type="uint32" />
+  <reg name="IVOR19" bitsize="32" type="uint32" />
+  <reg name="IVOR20" bitsize="32" type="uint32" />
+  <reg name="IVOR21" bitsize="32" type="uint32" />
+  <reg name="IVOR22" bitsize="32" type="uint32" />
+  <reg name="IVOR23" bitsize="32" type="uint32" />
+  <reg name="IVOR24" bitsize="32" type="uint32" />
+  <reg name="IVOR25" bitsize="32" type="uint32" />
+  <reg name="IVOR26" bitsize="32" type="uint32" />
+  <reg name="IVOR27" bitsize="32" type="uint32" />
+  <reg name="IVOR28" bitsize="32" type="uint32" />
+  <reg name="IVOR29" bitsize="32" type="uint32" />
+  <reg name="IVOR30" bitsize="32" type="uint32" />
+  <reg name="IVOR31" bitsize="32" type="uint32" />
+  <reg name="IVOR32" bitsize="32" type="uint32" />
+  <reg name="IVOR33" bitsize="32" type="uint32" />
+  <reg name="IVOR34" bitsize="32" type="uint32" />
+  <reg name="IVOR35" bitsize="32" type="uint32" />
+  <reg name="IVPR" bitsize="32" type="uint32" />
+  <reg name="SRR0" bitsize="32" type="uint32" />
+  <reg name="SRR1" bitsize="32" type="uint32" />
+  <reg name="CSRR0" bitsize="32" type="uint32" />
+  <reg name="CSRR1" bitsize="32" type="uint32" />
+  <reg name="DSRR0" bitsize="32" type="uint32" />
+  <reg name="DSRR1" bitsize="32" type="uint32" />
+  <reg name="MCSRR0" bitsize="32" type="uint32" />
+  <reg name="MCSRR1" bitsize="32" type="uint32" />
+  <reg name="ESR" bitsize="32" type="uint32" />
+  <reg name="USPRG0" bitsize="32" type="uint32" />
+  <reg name="MCSR" bitsize="32" type="uint32" />
+  <reg name="MCAR" bitsize="32" type="uint32" />
+  <reg name="DEAR" bitsize="32" type="uint32" />
+
+</feature>

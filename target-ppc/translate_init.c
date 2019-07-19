@@ -9806,6 +9806,111 @@ static int gdb_set_ex_reg(CPUPPCState* env,uint8_t* mem_buf,int n)
     }
     return 0;
 }
+
+static int gdb_get_booke_ex_reg(CPUPPCState* env,uint8_t* mem_buf,int n)
+{
+//    printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
+    if(n < 10) {
+        stl_p(mem_buf, env->spr[SPR_SPRG0 + n]);
+    } else if(n < 46) {
+        stl_p(mem_buf, env->spr[SPR_BOOKE_IVOR0 + (n - 10)]);
+    } else {
+        switch (n) {
+        case 46:                    /* IVPR */
+            stl_p(mem_buf, env->spr[SPR_BOOKE_IVPR]);
+            break;
+        case 47:                    /* SRR0 SRR1 */
+        case 48:                    
+            stl_p(mem_buf, env->spr[SPR_SRR0 + (n - 47)]);
+            break;
+        case 49:                    /* CSRR0 CSRR1 */
+        case 50:
+            stl_p(mem_buf, env->spr[SPR_BOOKE_CSRR0 + (n - 49)]);
+            break;
+        case 51:                    /* DSRR0 DSRR1 */
+        case 52:
+            stl_p(mem_buf, env->spr[SPR_BOOKE_DSRR0 + (n - 51)]);
+            break;
+        case 53:                    /* MCSRR0 MCSRR1 */
+        case 54: 
+            stl_p(mem_buf, env->spr[SPR_BOOKE_MCSRR0 + (n - 53)]);
+            break;
+        case 55:                    /* ESR */
+            stl_p(mem_buf, env->spr[SPR_BOOKE_ESR]);
+            break;
+        case 56:                    /* USPRG0 */
+            stl_p(mem_buf, env->spr[SPR_USPRG0]);
+            break;
+        case 57:                    /* MCSR */
+            stl_p(mem_buf, env->spr[SPR_BOOKE_MCSR]);
+            break;
+        case 58:                    /* MCAR */
+            stl_p(mem_buf, env->spr[SPR_Exxx_MCAR]);
+            break;
+        case 59:                    /* DEAR */
+            stl_p(mem_buf, env->spr[SPR_BOOKE_DEAR]);
+            break;
+        default:
+            return 0;
+        }
+    }
+    ppc_maybe_bswap_register(env, mem_buf, 4);
+    return 4;
+}
+
+static int gdb_set_booke_ex_reg(CPUPPCState* env,uint8_t * mem_buf,int n)
+{
+ //   printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
+
+    ppc_maybe_bswap_register(env, mem_buf, 4);
+    
+    if(n < 10) {
+        env->spr[SPR_SPRG0 + n] = ldl_p(mem_buf);
+    } else if(n < 46) {
+        env->spr[SPR_BOOKE_IVOR0 + (n - 10)] = ldl_p(mem_buf);
+    } else {
+        switch (n) {
+        case 46:                    /* IVPR */
+            env->spr[SPR_BOOKE_IVPR] = ldl_p(mem_buf);
+            break;
+        case 47:                    /* SRR0 SRR1 */
+        case 48:                    
+            env->spr[SPR_SRR0 + (n - 47)] = ldl_p(mem_buf);
+            break;
+        case 49:                    /* CSRR0 CSRR1 */
+        case 50:
+            env->spr[SPR_BOOKE_CSRR0 + (n - 49)] = ldl_p(mem_buf);
+            break;
+        case 51:                    /* DSRR0 DSRR1 */
+        case 52:
+            env->spr[SPR_BOOKE_DSRR0 + (n - 51)] = ldl_p(mem_buf);
+            break;
+        case 53:                    /* MCSRR0 MCSRR1 */
+        case 54: 
+            env->spr[SPR_BOOKE_MCSRR0 + (n - 53)] = ldl_p(mem_buf);
+            break;
+        case 55:                    /* ESR */
+            env->spr[SPR_BOOKE_ESR] = ldl_p(mem_buf);
+            break;
+        case 56:                    /* USPRG0 */
+            env->spr[SPR_USPRG0] = ldl_p(mem_buf);
+            break;
+        case 57:                    /* MCSR */
+            env->spr[SPR_BOOKE_MCSR] = ldl_p(mem_buf);
+            break;
+        case 58:                    /* MCAR */
+            env->spr[SPR_Exxx_MCAR] = ldl_p(mem_buf);
+            break;
+        case 59:                    /* DEAR */
+            env->spr[SPR_BOOKE_DEAR] = ldl_p(mem_buf);
+            break;
+        default:
+            return 0;
+        }
+    }
+
+    return 4;
+}
 #endif
 
 static int ppc_fixup_cpu(PowerPCCPU *cpu)
@@ -9933,14 +10038,19 @@ static void ppc_cpu_realizefn(DeviceState *dev, Error **errp)
 
     if (pcc->mmu_model & POWERPC_MMU_BOOKE206) {
         gdb_register_coprocessor(cs, gdb_get_booke_mmu_reg, gdb_set_booke_mmu_reg,
-                                 32, "power-booke-mmu.xml", 0);
+                                 12, "power-booke-mmu.xml", 0);
     }
-    
 
-    if(pcc->insns_flags & PPC_INSNS_BASE){
+    if((pcc->insns_flags & PPC_INSNS_BASE) && (pcc->insns_flags &  PPC_STRING)){
         gdb_register_coprocessor(cs, gdb_get_ex_reg, gdb_set_ex_reg,
                                  8, "power-ex.xml", 0);
     }
+
+    if (pcc->insns_flags2 & PPC2_BOOKE206) {
+        gdb_register_coprocessor(cs, gdb_get_booke_ex_reg, gdb_set_booke_ex_reg,
+                                 60, "power-booke-ex.xml", 0);
+    }
+    
 #endif
     qemu_init_vcpu(cs);
 
