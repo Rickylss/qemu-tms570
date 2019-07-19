@@ -59,6 +59,11 @@ static void mmubooke_create_initial_mapping(CPUPPCState *env)
     tlb->mas7_3 |= MAS3_UR | MAS3_UW | MAS3_UX | MAS3_SR | MAS3_SW | MAS3_SX;
 
     env->tlb_dirty = true;
+    env->spr[SPR_BOOKE_MAS0] = MAS0_TLBSEL_TLB1;
+    env->spr[SPR_BOOKE_MAS1] = tlb->mas1;
+    env->spr[SPR_BOOKE_MAS2] = tlb->mas2;
+    env->spr[SPR_BOOKE_MAS3] = tlb->mas7_3;
+    env->spr[SPR_BOOKE_MAS4] = MAS0_TLBSEL_TLB1;
 }
 
 static void ppc_5675_reset(void *opaque)

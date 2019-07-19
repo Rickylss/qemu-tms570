@@ -5697,12 +5697,12 @@ case "$target_name" in
     TARGET_BASE_ARCH=openrisc
   ;;
   ppc)
-    gdb_xml_files="power-core.xml power-fpu.xml power-altivec.xml power-spe.xml power-mmu.xml power-ex.xml"
+    gdb_xml_files="power-core.xml power-fpu.xml power-altivec.xml power-spe.xml power-mmu.xml power-ex.xml power-booke-mmu.xml"
   ;;
   ppcemb)
     TARGET_BASE_ARCH=ppc
     TARGET_ABI_DIR=ppc
-    gdb_xml_files="power-core.xml power-fpu.xml power-altivec.xml power-spe.xml power-mmu.xml power-ex.xml"
+    gdb_xml_files="power-core.xml power-fpu.xml power-altivec.xml power-spe.xml power-mmu.xml power-ex.xml power-booke-mmu.xml"
   ;;
   ppc64)
     TARGET_BASE_ARCH=ppc

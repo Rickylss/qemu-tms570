@@ -1846,11 +1846,13 @@ static void gen_spr_BookE206(CPUPPCState *env, uint32_t mas_mask,
                      &spr_read_generic, &spr_write_booke_pid,
                      0x00000000);
     }
-    /* XXX : not implemented */
+    /* read-only register that provides information 
+     * about the configuration of the e200z7 MMU design 
+     */
     spr_register(env, SPR_MMUCFG, "MMUCFG",
                  SPR_NOACCESS, SPR_NOACCESS,
                  &spr_read_generic, SPR_NOACCESS,
-                 0x00000000); /* TOFIX */
+                 0x004009c4); 
     switch (env->nb_ways) {
     case 4:
         spr_register(env, SPR_BOOKE_TLB3CFG, "TLB3CFG",
@@ -9681,6 +9683,80 @@ static int gdb_set_mmu_reg(CPUPPCState* env,uint8_t* mem_buf,int n)
     return 0;
 }
 
+static int gdb_get_booke_mmu_reg(CPUPPCState* env,uint8_t * mem_buf,int n)
+{
+ //  printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
+    if (n < 7) {                        /* MASn */
+        stl_p(mem_buf,env->spr[SPR_BOOKE_MAS0 + n]);
+    } else {
+        switch (n) {
+        case 7:                         /* PID0 */
+            stl_p(mem_buf,env->spr[SPR_BOOKE_PID]);
+            break;
+        case 8:                         /* MMUCSR0 */
+            stl_p(mem_buf,env->spr[SPR_MMUCSR0]);
+            break;
+        case 9:                         /* MMUCFG */
+            stl_p(mem_buf,env->spr[SPR_MMUCFG]);
+            break;
+        case 10:                         /* TLB0CFG */
+            /* 
+             * Because the e200z7 MMU design does not 
+             * implement TLB0, this register reads as all ‘0’
+             * 
+             */
+            stl_p(mem_buf,env->spr[SPR_BOOKE_TLB0CFG]);
+            break;        
+        case 11:                         /* TLB1CFG */
+            stl_p(mem_buf,env->spr[SPR_BOOKE_TLB1CFG]);
+            break;   
+        default:
+            return 0;
+        }
+    }
+
+    ppc_maybe_bswap_register(env, mem_buf, 4);
+    return 4;
+}
+
+static int gdb_set_booke_mmu_reg(CPUPPCState* env,uint8_t* mem_buf,int n)
+{
+//    printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
+
+    ppc_maybe_bswap_register(env, mem_buf, 4);
+
+    if (n < 7) {                        /* MASn */
+        env->spr[SPR_BOOKE_MAS0 + n] = ldl_p(mem_buf);
+    } else {
+        switch (n) {
+        case 7:                         /* PID0 */
+            env->spr[SPR_BOOKE_PID] = ldl_p(mem_buf);
+            break;
+        case 8:                         /* MMUCSR0 */
+            env->spr[SPR_MMUCSR0] = ldl_p(mem_buf);
+            break;
+        case 9:                         /* MMUCFG */
+            env->spr[SPR_MMUCFG] = ldl_p(mem_buf);
+            break;
+        case 10:                         /* TLB0CFG */
+            /* 
+             * Because the e200z7 MMU design does not 
+             * implement TLB0, this register reads as all ‘0’
+             * 
+             */
+            env->spr[SPR_BOOKE_TLB0CFG] = ldl_p(mem_buf);
+            break;        
+        case 11:                         /* TLB1CFG */
+            env->spr[SPR_BOOKE_TLB1CFG] = ldl_p(mem_buf);
+            break;   
+        default:
+            return 0;
+        }
+    }
+
+    return 4;
+}
+
 static int gdb_get_ex_reg(CPUPPCState* env,uint8_t * mem_buf,int n)
 {
  //   printf("file:%s     line:%d     func:%s\n",__FILE__,__LINE__,__FUNCTION__);
@@ -9854,6 +9930,12 @@ static void ppc_cpu_realizefn(DeviceState *dev, Error **errp)
         gdb_register_coprocessor(cs, gdb_get_mmu_reg, gdb_set_mmu_reg,
                                  33, "power-mmu.xml", 0);
     }
+
+    if (pcc->mmu_model & POWERPC_MMU_BOOKE206) {
+        gdb_register_coprocessor(cs, gdb_get_booke_mmu_reg, gdb_set_booke_mmu_reg,
+                                 32, "power-booke-mmu.xml", 0);
+    }
+    
 
     if(pcc->insns_flags & PPC_INSNS_BASE){
         gdb_register_coprocessor(cs, gdb_get_ex_reg, gdb_set_ex_reg,
