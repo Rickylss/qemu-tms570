@@ -42,4 +42,6 @@
   <reg name="fpsid" bitsize="32" type="int" group="float"/>
   <reg name="fpscr" bitsize="32" type="int" group="float"/>
   <reg name="fpexc" bitsize="32" type="int" group="float"/>
+  <reg name="mvfr0" bitsize="32" type="int" group="float"/>
+  <reg name="mvfr1" bitsize="32" type="int" group="float"/>
 </feature>

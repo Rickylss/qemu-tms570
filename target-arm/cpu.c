@@ -1021,7 +1021,7 @@ static void cortex_r4_initfn(Object *obj){
     cpu->id_isar2 = 0x21232131;
     cpu->id_isar3 = 0x01112131;
     cpu->id_isar4 = 0x00010142;
-    cpu->id_isar5 = 0x0;    
+    cpu->id_isar5 = 0x0; 
     define_arm_cp_regs(cpu, cortexr4_cp_reginfo);
 }
 
@@ -1063,6 +1063,8 @@ static void cortex_r4f_initfn(Object *obj)
     cpu->id_isar3 = 0x01112131;
     cpu->id_isar4 = 0x00010142;
     cpu->id_isar5 = 0x0;
+    cpu->mvfr0 = 0x10110221;
+    cpu->mvfr1 = 0x11;   
 
     { /* set fpu fpsid for cortexr4f */
         uint8_t r = ( cpu->midr >> 20 ) & 0xf;
@@ -1641,7 +1643,7 @@ static void arm_cpu_class_init(ObjectClass *oc, void *data)
     cc->write_elf64_note = arm_cpu_write_elf64_note;
     cc->write_elf32_note = arm_cpu_write_elf32_note;
 #endif
-    cc->gdb_num_core_regs = 26;
+    cc->gdb_num_core_regs = 27;
     cc->gdb_core_xml_file = "arm-core.xml";
     cc->gdb_arch_name = arm_gdb_arch_name;
     cc->gdb_stop_before_watchpoint = true;

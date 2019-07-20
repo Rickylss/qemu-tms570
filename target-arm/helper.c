@@ -14,6 +14,7 @@
 #include <zlib.h> /* For crc32 */
 #include "exec/semihost.h"
 #include "sysemu/kvm.h"
+#include "exec/softmmu-arm-semi.h"
 
 #define ARM_CPU_FREQ 1000000000 /* FIXME: 1 GHz, should be configurable */
 
@@ -39,52 +40,140 @@ static bool get_phys_addr_lpae(CPUARMState *env, target_ulong address,
 static int vfp_gdb_get_reg(CPUARMState *env, uint8_t *buf, int reg)
 {
     int nregs;
+#ifndef CONFIG_USER_ONLY
+    bool targ_bigendian = arm_bswap_needed(env);
+#endif
 
     /* VFP data registers are always little-endian.  */
     nregs = arm_feature(env, ARM_FEATURE_VFP3) ? 32 : 16;
     if (reg < nregs) {
+#ifdef CONFIG_USER_ONLY
         stfq_le_p(buf, env->vfp.regs[reg]);
+#else
+        if (targ_bigendian) {
+            stfq_be_p(buf, env->vfp.regs[reg]);
+        } else {
+            stfq_le_p(buf, env->vfp.regs[reg]);
+        }
+#endif
         return 8;
     }
+
     if (arm_feature(env, ARM_FEATURE_NEON)) {
         /* Aliases for Q regs.  */
         nregs += 16;
         if (reg < nregs) {
+#ifdef CONFIG_USER_ONLY
             stfq_le_p(buf, env->vfp.regs[(reg - 32) * 2]);
             stfq_le_p(buf + 8, env->vfp.regs[(reg - 32) * 2 + 1]);
+#else
+            if (targ_bigendian) {
+            stfq_be_p(buf, env->vfp.regs[(reg - 32) * 2]);
+            stfq_be_p(buf + 8, env->vfp.regs[(reg - 32) * 2 + 1]);
+            } else {
+            stfq_le_p(buf, env->vfp.regs[(reg - 32) * 2]);
+            stfq_le_p(buf + 8, env->vfp.regs[(reg - 32) * 2 + 1]);
+            }
+#endif
             return 16;
         }
     }
+#ifdef CONFIG_USER_ONLY
     switch (reg - nregs) {
     case 0: stl_p(buf, env->vfp.xregs[ARM_VFP_FPSID]); return 4;
     case 1: stl_p(buf, env->vfp.xregs[ARM_VFP_FPSCR]); return 4;
     case 2: stl_p(buf, env->vfp.xregs[ARM_VFP_FPEXC]); return 4;
+    case 3: stl_p(buf, env->vfp.xregs[ARM_VFP_MVFR0]); return 4;
+    case 4: stl_p(buf, env->vfp.xregs[ARM_VFP_MVFR1]); return 4;
     }
+#else
+    if (targ_bigendian) {
+        switch (reg - nregs) {
+        case 0: stl_be_p(buf, env->vfp.xregs[ARM_VFP_FPSID]); return 4;
+        case 1: stl_be_p(buf, env->vfp.xregs[ARM_VFP_FPSCR]); return 4;
+        case 2: stl_be_p(buf, env->vfp.xregs[ARM_VFP_FPEXC]); return 4;
+        case 3: stl_be_p(buf, env->vfp.xregs[ARM_VFP_MVFR0]); return 4;
+        case 4: stl_be_p(buf, env->vfp.xregs[ARM_VFP_MVFR1]); return 4;
+        }
+    } else {
+        switch (reg - nregs) {
+        case 0: stl_p(buf, env->vfp.xregs[ARM_VFP_FPSID]); return 4;
+        case 1: stl_p(buf, env->vfp.xregs[ARM_VFP_FPSCR]); return 4;
+        case 2: stl_p(buf, env->vfp.xregs[ARM_VFP_FPEXC]); return 4;
+        case 3: stl_p(buf, env->vfp.xregs[ARM_VFP_MVFR0]); return 4;
+        case 4: stl_p(buf, env->vfp.xregs[ARM_VFP_MVFR1]); return 4;
+        }
+    }
+#endif
+
     return 0;
 }
 
 static int vfp_gdb_set_reg(CPUARMState *env, uint8_t *buf, int reg)
 {
     int nregs;
+#ifndef CONFIG_USER_ONLY
+    bool targ_bigendian = arm_bswap_needed(env);
+#endif
 
     nregs = arm_feature(env, ARM_FEATURE_VFP3) ? 32 : 16;
     if (reg < nregs) {
+#ifdef CONFIG_USER_ONLY
         env->vfp.regs[reg] = ldfq_le_p(buf);
+#else
+        if (targ_bigendian) {
+            env->vfp.regs[reg] = ldfq_be_p(buf);
+        } else {
+            env->vfp.regs[reg] = ldfq_le_p(buf);
+        }
+#endif
         return 8;
     }
     if (arm_feature(env, ARM_FEATURE_NEON)) {
         nregs += 16;
         if (reg < nregs) {
+#ifdef CONFIG_USER_ONLY
             env->vfp.regs[(reg - 32) * 2] = ldfq_le_p(buf);
             env->vfp.regs[(reg - 32) * 2 + 1] = ldfq_le_p(buf + 8);
+#else
+            if (targ_bigendian) {
+                env->vfp.regs[(reg - 32) * 2] = ldfq_be_p(buf);
+                env->vfp.regs[(reg - 32) * 2 + 1] = ldfq_be_p(buf + 8);
+            } else {
+                env->vfp.regs[(reg - 32) * 2] = ldfq_le_p(buf);
+                env->vfp.regs[(reg - 32) * 2 + 1] = ldfq_le_p(buf + 8);
+            }
+#endif
             return 16;
         }
     }
+#ifdef CONFIG_USER_ONLY
     switch (reg - nregs) {
     case 0: env->vfp.xregs[ARM_VFP_FPSID] = ldl_p(buf); return 4;
     case 1: env->vfp.xregs[ARM_VFP_FPSCR] = ldl_p(buf); return 4;
     case 2: env->vfp.xregs[ARM_VFP_FPEXC] = ldl_p(buf) & (1 << 30); return 4;
+    case 3: env->vfp.xregs[ARM_VFP_MVFR0] = ldl_p(buf); return 4;
+    case 4: env->vfp.xregs[ARM_VFP_MVFR1] = ldl_p(buf); return 4;
     }
+#else
+    if (targ_bigendian) {
+        switch (reg - nregs) {
+        case 0: env->vfp.xregs[ARM_VFP_FPSID] = ldl_be_p(buf); return 4;
+        case 1: env->vfp.xregs[ARM_VFP_FPSCR] = ldl_be_p(buf); return 4;
+        case 2: env->vfp.xregs[ARM_VFP_FPEXC] = ldl_be_p(buf) & (1 << 30); return 4;
+        case 3: env->vfp.xregs[ARM_VFP_MVFR0] = ldl_be_p(buf); return 4;
+        case 4: env->vfp.xregs[ARM_VFP_MVFR1] = ldl_be_p(buf); return 4;
+        }
+    } else {
+        switch (reg - nregs) {
+        case 0: env->vfp.xregs[ARM_VFP_FPSID] = ldl_p(buf); return 4;
+        case 1: env->vfp.xregs[ARM_VFP_FPSCR] = ldl_p(buf); return 4;
+        case 2: env->vfp.xregs[ARM_VFP_FPEXC] = ldl_p(buf) & (1 << 30); return 4;
+        case 3: env->vfp.xregs[ARM_VFP_MVFR0] = ldl_p(buf); return 4;
+        case 4: env->vfp.xregs[ARM_VFP_MVFR1] = ldl_p(buf); return 4;
+        }
+    }
+#endif
     return 0;
 }
 
@@ -5115,7 +5204,7 @@ void arm_cpu_register_gdb_regs_for_features(ARMCPU *cpu)
                                  51, "arm-neon.xml", 0);
     } else if (arm_feature(env, ARM_FEATURE_VFP3)) {
         gdb_register_coprocessor(cs, vfp_gdb_get_reg, vfp_gdb_set_reg,
-                                 35, "arm-vfp3.xml", 0);
+                                 37, "arm-vfp3.xml", 0);
     } else if (arm_feature(env, ARM_FEATURE_VFP)) {
         gdb_register_coprocessor(cs, vfp_gdb_get_reg, vfp_gdb_set_reg,
                                  19, "arm-vfp.xml", 0);

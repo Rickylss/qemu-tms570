@@ -86,6 +86,18 @@ int arm_cpu_gdb_read_register(CPUState *cs, uint8_t *mem_buf, int n)
         }
         return 4;
 #endif
+    case 26:
+        /* SPSR */
+#ifdef CONFIG_USER_ONLY
+        return gdb_get_reg32(mem_buf, env->spsr);
+#else
+        if (targ_bigendian) {
+            stl_be_p(mem_buf, env->spsr);
+        } else {
+            stl_le_p(mem_buf, env->spsr);
+        }
+        return 4;
+#endif
     }
     /* Unknown register.  */
     return 0;
@@ -138,6 +150,10 @@ int arm_cpu_gdb_write_register(CPUState *cs, uint8_t *mem_buf, int n)
     case 25:
         /* CPSR */
         cpsr_write(env, tmp, 0xffffffff, CPSRWriteByGDBStub);
+        return 4;
+    case 26:
+        /* SPSR */
+        env->spsr = tmp;
         return 4;
     }
     /* Unknown register.  */
