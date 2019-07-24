@@ -5064,3 +5064,5 @@ Example:
 
 -> { "execute": "add_app", "arguments": { "path": "/path/to/app", "addr": 0 } }
 <- { "return": {} }
+
+EQMP
