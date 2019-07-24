@@ -217,7 +217,7 @@ static void ppc_5675board_init(MachineState *machine)
     int appindex=0;
     int appsize=-1;
     for(; appindex < appcount; appindex++){
-        if (app[0].appaddr == 0) {
+        if (app[appindex].appaddr == 0) {
             appsize = load_image_bam_targphys(app[0].appname,app[0].appaddr,machine->ram_size-app[0].appaddr, &reset_vector);
         } else {
             appsize = load_image_targphys(app[appindex].appname,app[appindex].appaddr,machine->ram_size-app[appindex].appaddr);

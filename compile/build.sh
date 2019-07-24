@@ -33,7 +33,7 @@ else
     compilepath="$qemupath/../qemu-compile/$1"
     buildpath="$compilepath/qemu-build"
     installpath="$compilepath/qemu-install"
-    mkdir -p $installpath
+    mkdir -p $installpath/bin
     mkdir -p $buildpath
     cd $buildpath
 
