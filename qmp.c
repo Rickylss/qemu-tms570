@@ -714,6 +714,9 @@ ACPIOSTInfoList *qmp_query_acpi_ospm_status(Error **errp)
 
 void qmp_add_app(const char *path, uint32_t addr, Error **errp)
 {
-    //printf("app_path:%s ; app_addr:%u\n", path, addr);
-    qemu_system_add_app(path, addr);
+    if (strlen(path) != 0 && access(path, F_OK) == 0) {
+        qemu_system_add_app(path, addr);
+    } else {
+        error_setg(errp, "file do not exist");
+    }
 }
