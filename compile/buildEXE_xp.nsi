@@ -15,13 +15,13 @@ SetCompressor lzma
 
 ; MUI Settings
 !define MUI_ABORTWARNING
-!define MUI_ICON "${NSISDIR}\Contrib\Graphics\Icons\modern-install.ico"
+!define MUI_ICON "C:\home\software\cygwin252\code\qemu\compile\logo.ico"
 !define MUI_UNICON "${NSISDIR}\Contrib\Graphics\Icons\modern-uninstall.ico"
 
 ; Welcome page
 !insertmacro MUI_PAGE_WELCOME
 ; License page
-!insertmacro MUI_PAGE_LICENSE "C:\home\software\cygwin252\home\qemu\LICENSE"
+!insertmacro MUI_PAGE_LICENSE "C:\home\software\cygwin252\code\qemu\LICENSE"
 ; Directory page
 !insertmacro MUI_PAGE_DIRECTORY
 ; Instfiles page
@@ -49,10 +49,10 @@ ShowUnInstDetails show
 Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
   SetOverwrite ifnewer
-  File /a /r "C:\home\software\cygwin252\home\qemu-compile\winxp\qemu-install\*.*"
+  File /a /r "C:\home\software\cygwin252\code\qemu-compile\winxp\qemu-install\*.*"
   SetOverwrite ifnewer
   SetOutPath "$INSTDIR\bin"
-  File "C:\home\software\cygwin252\home\qemu\compile\qemu-mingw64-dll-winxp\*.*"
+  File "C:\home\software\cygwin252\code\qemu\compile\qemu-mingw64-dll-winxp\*.*"
 SectionEnd
 
 Section -Post
