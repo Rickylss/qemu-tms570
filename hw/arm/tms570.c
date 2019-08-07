@@ -20,6 +20,62 @@
 #include "hw/block/flash.h"
 #include "qemu/error-report.h"
 #include "hw/char/tms570_sci.h"
+#include "hw/sysbus.h"
+#include "qemu/log.h"
+#include "qemu/osdep.h"
+
+#define TYPE_FAKESYS "tms570-fakesys"
+#define FAKESYS(obj) OBJECT_CHECK(FakesysState, (obj), TYPE_FAKESYS)
+
+typedef struct FakesysState {
+    SysBusDevice parent_obj;
+
+    MemoryRegion iomem;
+
+    uint32_t syspc[9];  /* syspc0~8 */
+    uint32_t csdis;     /* CSDIS CSDISSET CSDISCLR */
+    uint32_t cddis;     /* CDDIS CDDISSET CDDISCLR */
+    uint32_t ghvsrc;
+    uint32_t vclkasrc;
+    uint32_t rclksrc;
+    uint32_t csvstat;
+    uint32_t mstgcr;
+    uint32_t minitgcr;
+    uint32_t msinena;
+
+    uint32_t mstcgstat;
+    uint32_t ministat;
+    uint32_t pllctl1;
+    uint32_t pllctl2;
+    uint32_t syspc10;
+    uint64_t dieidl;     /* DIEIDL DIEIDH */
+    uint32_t lpomonctl;
+    uint32_t clktest;
+    uint32_t dftctrlreg1;
+    uint32_t dftctrlreg2; 
+
+    uint32_t gpreg1;
+    uint32_t impfasts;
+    uint32_t impftadd;
+    uint32_t ssir[4];
+    uint32_t ramgcr;
+    uint32_t bmmcr1;
+
+    uint32_t cpurstcr;
+    uint32_t clkcntl;
+    uint32_t ecpcntl;
+    uint32_t devcr1;
+    uint32_t sysecr;
+    uint32_t sysesr;
+    uint32_t systasr;
+    uint32_t glbstat;
+    uint32_t devid;
+    uint32_t ssivec;
+    uint32_t ssif;
+
+    uint32_t black_hole;
+
+} FakesysState;
 
 /* Board init */
 
@@ -165,10 +221,13 @@ static void tms570_init(MachineState *machine,
 
     /* SCI at address 0xfff7e500 */
     //sysbus_create_varargs("tms570-sci", 0xfff7e500, pic[64], pic[74], NULL);
-    sci_create(0xfff7e500, pic[64], pic[74], serial_hds[0]);
+    sci_create(0xfff7e400, pic[13], pic[27], serial_hds[0]);
+    sci_create(0xfff7e500, pic[64], pic[74], serial_hds[1]);
 
     /* GPIO at address 0xfff7bc00 portA portB*/
     //sysbus_create_varargs("pl061", 0xfff7bc00, pic[9], pic[23], NULL);
+
+    sysbus_create_simple("tms570-fakesys", 0xffffff00, NULL);
 
     /* Memory map for tms570ls3137:  */
     /* 0xfff7b800 HET1 */
@@ -225,3 +284,107 @@ static void tms570_machine_init(void)
 }
 
 type_init(tms570_machine_init)
+
+static uint64_t fakesys_read(void *opaque, hwaddr offset, 
+                        unsigned size)
+{
+    FakesysState *s = (FakesysState *)opaque;
+
+    switch (offset)
+    {
+    case 0x30:      /* CSDIS CSDISSET CSDISCLR */
+    case 0x34:
+    case 0x38:
+        return s->csdis;
+    case 0x54:      /* CSVSTAT */
+        return (s->csdis ^ 0xff);
+    
+    default:
+        return s->black_hole;
+    }
+    
+}
+
+static void fakesys_write(void *opaque, hwaddr offset,
+                        uint64_t val, unsigned size)
+{
+    FakesysState *s = (FakesysState *)opaque;
+
+    switch (offset)
+    {
+    case 0x30:      /* CSDIS */
+        s->csdis = val;
+        break;
+    case 0x34:      /* CSDISSET */
+        s->csdis |= val & 0xFF;
+        break;
+    case 0x38:      /* CSDISCLR */
+        s->csdis &= ~(val & 0xFF);
+        break;
+    case 0x54:      /* CSVSTAT */
+        break;
+    
+    default:
+        s->black_hole = val;
+        break;
+    }
+    
+}
+
+static const MemoryRegionOps fakesys_ops = {
+    .read = fakesys_read,
+    .write = fakesys_write,
+    .endianness = DEVICE_NATIVE_ENDIAN,
+};
+
+static void fakesys_init(Object *obj)
+{
+    FakesysState *s = FAKESYS(obj);
+    SysBusDevice *sbd = SYS_BUS_DEVICE(obj);
+
+    memory_region_init_io(&s->iomem, obj, &fakesys_ops, s,
+                          "tms570-fakesys", 0x100);
+    sysbus_init_mmio(sbd, &s->iomem);
+}
+
+static void sysfake_reset(DeviceState *d)
+{
+    FakesysState *s = FAKESYS(d);
+    
+    s->csdis = 0xce;
+    s->csvstat = 0x77;
+}
+
+static const VMStateDescription vmstate_sysfake = {
+    .name = "tms570-sysfake",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .fields = (VMStateField[]) {
+        /* TODO */
+        VMSTATE_UINT32(black_hole, FakesysState),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
+static void fakesys_class_init(ObjectClass *klass, void *data)
+{
+    DeviceClass *dc = DEVICE_CLASS(klass);
+
+    dc->reset = sysfake_reset;
+    dc->vmsd = &vmstate_sysfake;
+}
+
+static const TypeInfo fakesys_info = {
+    .name          = TYPE_FAKESYS,
+    .parent        = TYPE_SYS_BUS_DEVICE,
+    .instance_size = sizeof(FakesysState),
+    .instance_init = fakesys_init,
+    .class_init    = fakesys_class_init,
+};
+
+static void fakesys_register_types(void)
+{
+    type_register_static(&fakesys_info);
+}
+
+type_init(fakesys_register_types)
