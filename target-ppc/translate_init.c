@@ -4587,7 +4587,7 @@ static void init_proc_e200 (CPUPPCState *env, int version)
 
     /* Time base */
     gen_tbl(env);
-    gen_spr_BookE(env, 0x000000070000FFFFULL);
+    gen_spr_BookE(env, 0x0000000F0000FFFFULL);
     switch (version)
     {
     case fsl_e200z6:
