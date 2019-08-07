@@ -31,7 +31,7 @@
 
 #define EPAPR_MAGIC                (0x45504150)
 #define MAX_CPUS 1
-#define RESET_TSIZE (2 << MAS1_TSIZE_SHIFT) // 0b00010 SIZE 4KB page size
+#define RESET_TSIZE (22 << MAS1_TSIZE_SHIFT) // 0b00010 SIZE 4GB page size
 #define RESET_MAPSIZE (1ULL << 10 << 2)
 // #if defined (TARGET_PPC64)
 // #define PPC_ELF_MACHINE     EM_PPC64
