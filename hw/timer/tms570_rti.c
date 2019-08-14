@@ -71,6 +71,14 @@ static void dw_reset(RTIState *s)
     s->dww_reaction_ctrl = 0x5;
 }
 
+static void rti_update_irq_compare(RTIState *s, int channel)
+{
+    uint32_t en_pend_irq = s->int_ctrl & s->int_flag & 0x0007000f;
+
+    qemu_set_irq(s->irq_compare[channel], en_pend_irq & (0x1 << channel));
+
+}
+
 static void rti_update_irq(RTIState *s)
 {
     /* enabled and pending interrupt */
@@ -87,12 +95,6 @@ static void rti_update_irq(RTIState *s)
     }
 
     qemu_set_irq(s->irq_timebase, en_pend_irq & (0x1 << 16));
-
-}
-
-static void rti_update(RTIState *s)
-{
-    rti_update_irq(s);
 }
 
 static void rti_update_compare(RTIState *s, int counter_num)
@@ -105,11 +107,8 @@ static void rti_update_compare(RTIState *s, int counter_num)
             { //compare interrupt
                 s->compare[i] += s->update_compare[i]; 
                 s->int_flag |= 0x1 << i;
-            } else
-            {
-                s->int_flag &= ~(0x1 << i);
+                rti_update_irq_compare(s, i);
             }
-            rti_update_irq(s);
         }
     }
 }
@@ -318,15 +317,15 @@ static void rti_write(void *opaque, hwaddr offset,
 
         case 0x80: /* RTISETINTENA && RTICLEARINTENA */
             s->int_ctrl |= val;
-            rti_update(s);
+            rti_update_irq(s);
             break;
         case 0x84: 
             s->int_ctrl &= ~val;
-            rti_update(s);
+            rti_update_irq(s);
             break;
         case 0x88: /* RTIINTFLAG */
             s->int_flag &= ~val;
-            rti_update(s);
+            rti_update_irq(s);
             break;
 
         /*--------------------Digital Watchdog--------------------*/
@@ -449,7 +448,6 @@ static void rti_reset(DeviceState *dev)
     s->int_flag = 0;
 
     dw_reset(s);
-    rti_update(s);
 }
 
 static const MemoryRegionOps rti_ops = {

@@ -118,6 +118,7 @@ static void vim_update_vectors(VimState *s)
         s->first_irq_isr = s->vimram->isrFunc[0];
     }
 
+    //fprintf(stderr, "channel: %d; isr: %x\n", s->first_irq_channel, s->first_irq_isr);
     vim_update(s);
 
 }
@@ -185,12 +186,12 @@ static uint64_t vim_read(void *opaque, hwaddr offset,
     {
         case 0x00: /* IRQINDEX */
             tmp = s->first_irq_channel;
-            s->is_read = 1;
+            s->is_read = 0;
             vim_update_vectors(s);
             return tmp;
         case 0x04: /* FIQINDEX */
             tmp = s->first_fiq_channel;
-            s->is_read = 1;
+            s->is_read = 0;
             vim_update_vectors(s);
             return tmp;
         case 0x70: /* IRQVECREG */
