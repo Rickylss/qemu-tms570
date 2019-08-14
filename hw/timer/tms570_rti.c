@@ -77,6 +77,11 @@ static void rti_update_irq_compare(RTIState *s, int channel)
 
     qemu_set_irq(s->irq_compare[channel], en_pend_irq & (0x1 << channel));
 
+<<<<<<< HEAD
+=======
+    s->int_flag &= ~(0x1 << channel);
+
+>>>>>>> f88034f07ede3cff79207ea25d646679c74ac61b
 }
 
 static void rti_update_irq(RTIState *s)
@@ -95,6 +100,11 @@ static void rti_update_irq(RTIState *s)
     }
 
     qemu_set_irq(s->irq_timebase, en_pend_irq & (0x1 << 16));
+<<<<<<< HEAD
+=======
+
+    s->int_flag = 0;
+>>>>>>> f88034f07ede3cff79207ea25d646679c74ac61b
 }
 
 static void rti_update_compare(RTIState *s, int counter_num)
