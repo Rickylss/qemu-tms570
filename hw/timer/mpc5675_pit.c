@@ -229,7 +229,7 @@ static void pit_init(Object *obj)
         sysbus_init_irq(dev, &s->irq[i]);
         bh[i] = qemu_bh_new(pit_timer_tick[i], s);
         s->timer[i] = ptimer_init(bh[i]);
-        ptimer_set_freq(s->timer[i], 1000000 * 50);
+        ptimer_set_freq(s->timer[i], 1000000);
     }
     
 }

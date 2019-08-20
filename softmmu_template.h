@@ -204,6 +204,24 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr,
         return res;
     }
 
+    if (DATA_SIZE == 4 && addr%4) {
+        int a = DATA_SIZE;
+        target_ulong addr1, addr2;
+        DATA_TYPE res1, res2;
+        unsigned shift;
+        addr1 = addr & ~(DATA_SIZE - 1);
+        addr2 = addr1 + DATA_SIZE;
+        /* Note the adjustment at the beginning of the function.
+           Undo that for the recursion.  */
+        res1 = helper_le_ld_name(env, addr1, oi, retaddr + GETPC_ADJ);
+        res2 = helper_le_ld_name(env, addr2, oi, retaddr + GETPC_ADJ);
+        shift = (addr & (DATA_SIZE - 1)) * 8;
+
+        /* Big-endian combine.  */
+        res = (res1 << shift) | (res2 >> ((DATA_SIZE * 8) - shift));
+        return res;
+    }
+
     haddr = addr + env->tlb_table[mmu_idx][index].addend;
 #if DATA_SIZE == 1
     res = glue(glue(ld, LSUFFIX), _p)((uint8_t *)haddr);
@@ -396,6 +414,36 @@ void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
             glue(helper_ret_stb, MMUSUFFIX)(env, addr + i, val8,
                                             oi, retaddr + GETPC_ADJ);
         }
+        return;
+    }
+
+    if (DATA_SIZE == 4 && addr%4) {
+        int i, index2;
+        //target_ulong addr1, addr2;
+        //uint32_t val1, val2;
+        unsigned shift;
+        target_ulong page2, tlb_addr2;
+        /* Ensure the second page is in the TLB.  Note that the first page
+           is already guaranteed to be filled, and that the second page
+           cannot evict the first.  */
+        page2 = (addr + DATA_SIZE) & TARGET_PAGE_MASK;
+        index2 = (page2 >> TARGET_PAGE_BITS) & (CPU_TLB_SIZE - 1);
+        tlb_addr2 = env->tlb_table[mmu_idx][index2].addr_write;
+        if (page2 != (tlb_addr2 & (TARGET_PAGE_MASK | TLB_INVALID_MASK))
+            && !VICTIM_TLB_HIT(addr_write, page2)) {
+            tlb_fill(ENV_GET_CPU(env), page2, MMU_DATA_STORE,
+                     mmu_idx, retaddr);
+        }
+
+        for (i = 0; i < DATA_SIZE; ++i) {
+            /* Little-endian extract.  */
+            uint8_t val8 = val >> (((DATA_SIZE - 1) * 8) - (i * 8));
+            /* Note the adjustment at the beginning of the function.
+               Undo that for the recursion.  */
+            glue(helper_ret_stb, MMUSUFFIX)(env, (addr + i) ^ (DATA_SIZE - 1), val8,
+                                            oi, retaddr + GETPC_ADJ);
+        }
+        
         return;
     }
 

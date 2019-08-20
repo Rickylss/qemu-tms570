@@ -7,16 +7,16 @@
 
 <!DOCTYPE feature SYSTEM "gdb-target.dtd">
 <feature name="org.gnu.gdb.power.mmu">
-  <reg name="MAS0" bitsize="32" type="uint32" regnum="105" />
-  <reg name="MAS1" bitsize="32" type="uint32" />
-  <reg name="MAS2" bitsize="32" type="uint32" />
-  <reg name="MAS3" bitsize="32" type="uint32" />
-  <reg name="MAS4" bitsize="32" type="uint32" />
-  <reg name="MAS5" bitsize="32" type="uint32" />
-  <reg name="MAS6" bitsize="32" type="uint32" />
-  <reg name="PID0" bitsize="32" type="uint32" />
-  <reg name="MMUCSR0" bitsize="32" type="uint32" />
-  <reg name="MMUCFG" bitsize="32" type="uint32" />
-  <reg name="TLB0CFG" bitsize="32" type="uint32" />
-  <reg name="TLB1CFG" bitsize="32" type="uint32" />
+  <reg name="mas0" bitsize="32" type="uint32" regnum="105" />
+  <reg name="mas1" bitsize="32" type="uint32" />
+  <reg name="mas2" bitsize="32" type="uint32" />
+  <reg name="mas3" bitsize="32" type="uint32" />
+  <reg name="mas4" bitsize="32" type="uint32" />
+  <reg name="mas5" bitsize="32" type="uint32" />
+  <reg name="mas6" bitsize="32" type="uint32" />
+  <reg name="pid0" bitsize="32" type="uint32" />
+  <reg name="mmucsr0" bitsize="32" type="uint32" />
+  <reg name="mmucfg" bitsize="32" type="uint32" />
+  <reg name="tlb0cfg" bitsize="32" type="uint32" />
+  <reg name="tlb1cfg" bitsize="32" type="uint32" />
 </feature>
