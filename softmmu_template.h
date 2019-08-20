@@ -205,7 +205,6 @@ WORD_TYPE helper_le_ld_name(CPUArchState *env, target_ulong addr,
     }
 
     if (DATA_SIZE == 4 && addr%4) {
-        int a = DATA_SIZE;
         target_ulong addr1, addr2;
         DATA_TYPE res1, res2;
         unsigned shift;
@@ -419,9 +418,6 @@ void helper_le_st_name(CPUArchState *env, target_ulong addr, DATA_TYPE val,
 
     if (DATA_SIZE == 4 && addr%4) {
         int i, index2;
-        //target_ulong addr1, addr2;
-        //uint32_t val1, val2;
-        unsigned shift;
         target_ulong page2, tlb_addr2;
         /* Ensure the second page is in the TLB.  Note that the first page
            is already guaranteed to be filled, and that the second page
