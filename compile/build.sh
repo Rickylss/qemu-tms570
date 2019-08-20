@@ -6,22 +6,22 @@ else
         Linux) target='arm-softmmu,arm-linux-user,ppc-softmmu,ppc-linux-user'
                cross=''
                disable=''
-               enable=''
+               enable='--enable-tcg-interpreter'
                ;;
         CYGWIN_NT-5.1) target='arm-softmmu,ppc-softmmu'
                cross='i686-w64-mingw32-'
                disable='--disable-docs --disable-gnutls --disable-curl --disable-libssh2 --disable-pie'
-               enable='--enable-gtk --enable-sdl'
+               enable='--enable-gtk --enable-sdl --enable-tcg-interpreter'
                ;;
         MSYS_NT-7*) target='arm-softmmu,ppc-softmmu'
                cross='i686-w64-mingw32-'
                disable=''
-               enable='--enable-gtk --enable-sdl --python=/usr/bin/python2'
+               enable='--enable-gtk --enable-sdl --enable-tcg-interpreter --python=/usr/bin/python2'
                ;;
         MSYS_NT-10*) target='arm-softmmu,ppc-softmmu'
                cross='x86_64-w64-mingw32-'
                disable=''
-               enable='--disable-werror --enable-gtk --enable-sdl --python=/usr/bin/python2'
+               enable='--disable-werror --enable-gtk --enable-sdl --enable-tcg-interpreter --python=/usr/bin/python2'
                ;;
         *) return
         ;;
