@@ -4354,3 +4354,38 @@
             'addr': 'uint32'
           } 
 }
+
+##
+# @TlbInfo
+#
+# TLB entry information.
+#
+# @Valid: tlb is valid?
+# @Size:  entry's page size
+# @VLE:  Power ISA VLE
+# @Cacheable: Cache Inhibited
+# @Write_thru: Write-through Required
+#
+# Since: 2.7
+##
+{ 'struct': 'TlbInfo', 'data': {'tlb': 'int',
+                                'valid': 'bool',
+                                'size': 'uint32',
+                                'vle' : 'bool',
+                                'cacheable': 'bool',
+                                'write_thru': 'bool'
+                               }
+}
+
+##
+# @get-ppc-tlb
+#
+# @tlb: tlb entry
+#
+# Returns: The @TlbInfo for the guest.
+#
+# Since: 2.7
+##
+{ 'command': 'get_ppc_tlb',
+  'returns': ['TlbInfo']
+}

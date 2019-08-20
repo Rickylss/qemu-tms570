@@ -6,7 +6,7 @@
      notice and this notice are preserved.  -->
 
 <!DOCTYPE feature SYSTEM "gdb-target.dtd">
-<feature name="org.gnu.gdb.power.mmu">
+<feature name="org.gnu.gdb.power.core">
   <reg name="sprg0" bitsize="32" type="uint32" regnum="137"/>
   <reg name="sprg1" bitsize="32" type="uint32"/>
   <reg name="sprg2" bitsize="32" type="uint32"/>

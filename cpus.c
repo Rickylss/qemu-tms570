@@ -1661,6 +1661,55 @@ CpuInfoList *qmp_query_cpus(Error **errp)
     return head;
 }
 
+TlbInfoList *qmp_get_ppc_tlb(Error **errp)
+{
+    TlbInfoList *head = NULL;
+#if defined(TARGET_PPC)
+    int is_valid;
+    int is_vle;
+    int is_cacheable;
+    int if_write_thru;
+    // uint32_t epn;
+    // uint32_t rpn;
+    uint32_t size;
+    TlbInfoList *info, *cur_item = NULL;
+
+    PowerPCCPU *ppc_cpu = POWERPC_CPU((&cpus)->tqh_first);
+    if(ppc_cpu->cpu_version == 0x81630000 || ppc_cpu->cpu_version == 0) {
+        CPUPPCState *env = &ppc_cpu->env;
+        for (int i = 0; i < 64; i++) {
+            info = g_malloc0(sizeof(*info));
+            ppcmas_tlb_t *tlb = &env->tlb.tlbm[i];
+
+            is_valid = (tlb->mas1 >> MAS1_VALID_SHIFT) & 0x1;
+            is_vle = (tlb->mas2 >> MAS2_VLE_SHIFT) & 0x1;
+            is_cacheable = (tlb->mas2 >> MAS2_I_SHIFT) & 0x1;
+            if_write_thru = (tlb->mas2 >> MAS2_W_SHIFT) & 0x1;
+            size = 1 << ((tlb->mas1 >> MAS1_TSIZE_SHIFT) & 0x1f);   //KB
+            // epn = (tlb->mas2 >> MAS2_EPN_SHIFT) & 0x3fffff;
+            // rpn = (tlb->mas7_3 >> MAS3_RPN_SHIFT) & 0x3fffff;
+
+            info->value = g_malloc0(sizeof(*info->value));
+            info->value->tlb = i;
+            info->value->valid = is_valid? true:false;
+            info->value->size = size;
+            info->value->vle = is_vle? true:false;
+            info->value->cacheable = is_cacheable? true:false;
+            info->value->write_thru = if_write_thru? true:false;
+
+            if (!cur_item) {
+                head = cur_item = info;
+            } else {
+                cur_item->next = info;
+                cur_item = info;
+            }
+        }
+    }
+#endif
+
+    return head;
+}
+
 void qmp_memsave(int64_t addr, int64_t size, const char *filename,
                  bool has_cpu, int64_t cpu_index, Error **errp)
 {

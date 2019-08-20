@@ -5066,3 +5066,44 @@ Example:
 <- { "return": {} }
 
 EQMP
+
+    {
+        .name       = "get_ppc_tlb",
+        .args_type  = "",
+        .mhandler.cmd_new = qmp_marshal_get_ppc_tlb,
+    },
+
+SQMP
+get_ppc_tlb
+----
+
+get tlb infos.
+
+Arguments: 
+
+- "tlb": tlb entry (json-string)
+
+Example:
+
+-> { "execute": "get_ppc_tlb", "arguments": { "tlb": 0 }}
+<- {
+      "return":[
+         {  'tlb': 0,
+            'valid': true,
+            'size': 16 * 1024,
+            'vle' : false,
+            'cacheable': false,
+            'write_thru': false
+        },
+         {
+            'tlb': 1,
+            'valid': true,
+            'size': 16 * 1024,
+            'vle' : false,
+            'cacheable': false,
+            'write_thru': false
+         }
+      ]
+   }
+
+EQMP

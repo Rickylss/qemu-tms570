@@ -37,7 +37,7 @@ else
     mkdir -p $buildpath
     cd $buildpath
 
-    $srcpath --prefix=$installpath --bindir=$installpath/bin --target-list=$target --cross-prefix=$cross $enable $disable  #--enable-debug     
+    $srcpath --prefix=$installpath --bindir=$installpath/bin --target-list=$target --cross-prefix=$cross $enable $disable  --enable-debug     
     make -j4 install
 
     cd $installpath/bin
