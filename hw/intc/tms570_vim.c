@@ -22,7 +22,7 @@ typedef struct VimRamState {
 
     MemoryRegion vimram;
 
-    uint32_t isrFunc[94];
+    uint32_t isrFunc[96];
 
 } VimRamState;
 
@@ -40,8 +40,8 @@ typedef struct VimState {
     /* TODO: Parity-related Registers */
 
     /* Control Registers */
-    uint32_t first_irq_channel; /* IRQ Index Offset Vector Register */
-    uint32_t first_fiq_channel; /* FIQ Index Offset Vector Register */
+    uint32_t first_irq_index; /* IRQ Index Offset Vector Register */
+    uint32_t first_fiq_index; /* FIQ Index Offset Vector Register */
     uint32_t fiq_or_irq[3]; /* FIQ/IRQ Program Control Register */
     uint32_t is_pending[3]; /* Pending Interrupt Read Location Register */
     /* Interrupt Enable Set Register Interrupt Enable Clear Register */
@@ -63,9 +63,9 @@ typedef struct VimState {
 
 static void vim_update(VimState *s)
 {
-    qemu_set_irq(s->irq, s->first_irq_channel);
+    qemu_set_irq(s->irq, s->first_irq_index);
 
-    qemu_set_irq(s->fiq, s->first_fiq_channel);
+    qemu_set_irq(s->fiq, s->first_fiq_index);
 }
 
 /* Update interrupts */
@@ -82,8 +82,9 @@ static void vim_update_vectors(VimState *s)
         if (fiq[i]) {
             uint32_t first_bit = fiq[i] & (~(fiq[i]-1));
             uint8_t channel = (32 * i) + log(first_bit)/log(2);
-            s->first_fiq_channel = channel;
-            s->first_fiq_isr = s->vimram->isrFunc[channel + 1];
+            uint8_t index = channel + 1;
+            s->first_fiq_index = index;
+            s->first_fiq_isr = s->vimram->isrFunc[index];
             if (s->is_read)
             {
                 s->is_pending[i] &= ~first_bit;
@@ -93,7 +94,7 @@ static void vim_update_vectors(VimState *s)
         }
     }
     if ((fiq[0] || fiq[1] || fiq[2]) == 0) {
-        s->first_fiq_channel = 0x00;
+        s->first_fiq_index = 0x00;
         s->first_fiq_isr = s->vimram->isrFunc[0];
     }
 
@@ -103,8 +104,9 @@ static void vim_update_vectors(VimState *s)
         if (irq[i]) {
             uint32_t first_bit = irq[i] & (~(irq[i]-1));
             uint8_t channel = (32 * i) + log(first_bit)/log(2);
-            s->first_irq_channel = channel;
-            s->first_irq_isr = s->vimram->isrFunc[channel + 1];
+            uint8_t index = channel + 1;
+            s->first_irq_index = index;
+            s->first_irq_isr = s->vimram->isrFunc[index];
             if (s->is_read)
             {
                 s->is_pending[i] &= ~first_bit;
@@ -114,11 +116,11 @@ static void vim_update_vectors(VimState *s)
         }
     }
     if ((irq[0] || irq[1] || irq[2]) == 0) {
-        s->first_irq_channel = 0x00;
+        s->first_irq_index = 0x00;
         s->first_irq_isr = s->vimram->isrFunc[0];
     }
 
-    //fprintf(stderr, "channel: %d; isr: %x\n", s->first_irq_channel, s->first_irq_isr);
+    //fprintf(stderr, "channel: %d; isr: %x\n", s->first_irq_index, s->first_irq_isr);
     vim_update(s);
 
 }
@@ -143,11 +145,7 @@ static void vim_set_irq(void *opaque, int irq, int level)
                 int channel = (4 * i + (3 - j)) & 0xff;
                 int index = channel / 32;
                 int bit = (channel % 32);
-                if (level == 0)
-                {
-                    //s->is_pending[index] &= ~(1u << bit);
-                } else
-                {
+                if (level != 0){ 
                     s->is_pending[index] |= 1u << bit;
                 }
             }
@@ -185,12 +183,12 @@ static uint64_t vim_read(void *opaque, hwaddr offset,
     switch (offset)
     {
         case 0x00: /* IRQINDEX */
-            tmp = s->first_irq_channel;
+            tmp = s->first_irq_index;
             s->is_read = 0;
             vim_update_vectors(s);
             return tmp;
         case 0x04: /* FIQINDEX */
-            tmp = s->first_fiq_channel;
+            tmp = s->first_fiq_index;
             s->is_read = 0;
             vim_update_vectors(s);
             return tmp;
@@ -253,8 +251,9 @@ static void vim_write(void *opaque, hwaddr offset,
         int index = (offset - 0x80) >> 2;
         if (index == 0) {
             s->int_map_channel[index] = (val & 0xffff) | 0x00010000;
+        } else {
+            s->int_map_channel[index] = val;
         }
-        s->int_map_channel[index] = val;
     }
     switch (offset)
     {
@@ -321,8 +320,8 @@ static void vim_reset(DeviceState *d)
     VimState *s = VIM(d);
     int i;
 
-    s->first_irq_channel = 0x00;
-    s->first_fiq_channel = 0x00;
+    s->first_irq_index = 0x00;
+    s->first_fiq_index = 0x00;
     s->first_irq_isr = s->vimram->isrFunc[0]; /* Phantom Vector */
     s->first_fiq_isr = s->vimram->isrFunc[0];
     
@@ -390,8 +389,8 @@ static const VMStateDescription vmstate_vim = {
     .minimum_version_id = 1,
     .fields = (VMStateField[]) {
         /* TODO */
-        VMSTATE_UINT32(first_irq_channel, VimState),
-        VMSTATE_UINT32(first_fiq_channel, VimState),
+        VMSTATE_UINT32(first_irq_index, VimState),
+        VMSTATE_UINT32(first_fiq_index, VimState),
         VMSTATE_UINT32(first_fiq_isr, VimState),
         VMSTATE_UINT32(first_irq_isr, VimState),
         VMSTATE_UINT32(cap_to_rti, VimState),
