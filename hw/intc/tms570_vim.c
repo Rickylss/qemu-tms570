@@ -35,8 +35,6 @@ typedef struct VimState {
 
     MemoryRegion mem;
 
-    uint32_t is_read;
-
     /* TODO: Parity-related Registers */
 
     /* Control Registers */
@@ -85,11 +83,7 @@ static void vim_update_vectors(VimState *s)
             uint8_t index = channel + 1;
             s->first_fiq_index = index;
             s->first_fiq_isr = s->vimram->isrFunc[index];
-            if (s->is_read)
-            {
-                s->is_pending[i] &= ~first_bit;
-                s->is_read = 0;
-            }
+            s->is_pending[i] &= ~first_bit;
             break;
         }
     }
@@ -107,11 +101,7 @@ static void vim_update_vectors(VimState *s)
             uint8_t index = channel + 1;
             s->first_irq_index = index;
             s->first_irq_isr = s->vimram->isrFunc[index];
-            if (s->is_read)
-            {
-                s->is_pending[i] &= ~first_bit;
-                s->is_read = 0;
-            }
+            s->is_pending[i] &= ~first_bit;
             break;
         }
     }
@@ -159,7 +149,6 @@ static uint64_t vim_read(void *opaque, hwaddr offset,
                         unsigned size)
 {
     VimState *s = (VimState *)opaque;
-    uint32_t tmp;
 
     if (offset >= 0x10 && offset < 0x20){ /* FIRQPR */
         return s->fiq_or_irq[(offset - 0x10) >> 2];
@@ -183,25 +172,13 @@ static uint64_t vim_read(void *opaque, hwaddr offset,
     switch (offset)
     {
         case 0x00: /* IRQINDEX */
-            tmp = s->first_irq_index;
-            s->is_read = 0;
-            vim_update_vectors(s);
-            return tmp;
+            return s->first_irq_index;
         case 0x04: /* FIQINDEX */
-            tmp = s->first_fiq_index;
-            s->is_read = 0;
-            vim_update_vectors(s);
-            return tmp;
+            return s->first_fiq_index;
         case 0x70: /* IRQVECREG */
-            tmp = s->first_irq_isr;
-            s->is_read = 1;
-            vim_update_vectors(s);
-            return tmp;
+            return s->first_irq_isr;
         case 0x74: /* FIQVECREG */
-            tmp = s->first_fiq_isr;
-            s->is_read = 1;
-            vim_update_vectors(s);
-            return tmp;
+            return s->first_fiq_isr;
         case 0x78: /* CAPEVT */
             return s->cap_to_rti;
         default:
