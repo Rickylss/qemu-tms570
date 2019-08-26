@@ -513,7 +513,7 @@ static void rti_init(Object *obj)
     /* HF LPO run at 10MHz.  */
     for (size_t i = 0; i < 2; i++)
     {
-        ptimer_set_freq(s->timer[i], 1000000);
+        ptimer_set_freq(s->timer[i], 100000000);
     }
     
     /* CAP event rti0 & rti1 */

@@ -5085,7 +5085,7 @@ Arguments:
 
 Example:
 
--> { "execute": "get_ppc_tlb", "arguments": { "tlb": 0 }}
+-> { "execute": "get_ppc_tlb"}
 <- {
       "return":[
          {  'tlb': 0,
