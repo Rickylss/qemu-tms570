@@ -1669,8 +1669,8 @@ TlbInfoList *qmp_get_ppc_tlb(Error **errp)
     int is_vle;
     int is_cacheable;
     int if_write_thru;
-    // uint32_t epn;
-    // uint32_t rpn;
+    uint32_t epn;
+    uint32_t rpn;
     uint32_t size;
     TlbInfoList *info, *cur_item = NULL;
 
@@ -1686,8 +1686,8 @@ TlbInfoList *qmp_get_ppc_tlb(Error **errp)
             is_cacheable = (tlb->mas2 >> MAS2_I_SHIFT) & 0x1;
             if_write_thru = (tlb->mas2 >> MAS2_W_SHIFT) & 0x1;
             size = 1 << ((tlb->mas1 >> MAS1_TSIZE_SHIFT) & 0x1f);   //KB
-            // epn = (tlb->mas2 >> MAS2_EPN_SHIFT) & 0x3fffff;
-            // rpn = (tlb->mas7_3 >> MAS3_RPN_SHIFT) & 0x3fffff;
+            epn = tlb->mas2 & MAS2_EPN_MASK;
+            rpn = tlb->mas7_3 & MAS3_RPN_MASK;
 
             info->value = g_malloc0(sizeof(*info->value));
             info->value->tlb = i;
@@ -1696,6 +1696,8 @@ TlbInfoList *qmp_get_ppc_tlb(Error **errp)
             info->value->vle = is_vle? true:false;
             info->value->cacheable = is_cacheable? true:false;
             info->value->write_thru = if_write_thru? true:false;
+            info->value->epn = epn;
+            info->value->rpn = rpn;
 
             if (!cur_item) {
                 head = cur_item = info;

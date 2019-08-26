@@ -5093,7 +5093,9 @@ Example:
             'size': 16 * 1024,
             'vle' : false,
             'cacheable': false,
-            'write_thru': false
+            'write_thru': false,
+            'epn': 0x00000000,
+            'rpn': 0x00000000
         },
          {
             'tlb': 1,
@@ -5101,7 +5103,9 @@ Example:
             'size': 16 * 1024,
             'vle' : false,
             'cacheable': false,
-            'write_thru': false
+            'write_thru': false,
+            'epn': 0x20000000,
+            'rpn': 0x20000000
          }
       ]
    }

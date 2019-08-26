@@ -4373,7 +4373,9 @@
                                 'size': 'uint32',
                                 'vle' : 'bool',
                                 'cacheable': 'bool',
-                                'write_thru': 'bool'
+                                'write_thru': 'bool',
+                                'epn': 'uint32',
+                                'rpn': 'uint32'
                                }
 }
 
