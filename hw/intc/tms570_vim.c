@@ -83,7 +83,6 @@ static void vim_update_vectors(VimState *s)
             uint8_t index = channel + 1;
             s->first_fiq_index = index;
             s->first_fiq_isr = s->vimram->isrFunc[index];
-            s->is_pending[i] &= ~first_bit;
             break;
         }
     }
@@ -101,7 +100,6 @@ static void vim_update_vectors(VimState *s)
             uint8_t index = channel + 1;
             s->first_irq_index = index;
             s->first_irq_isr = s->vimram->isrFunc[index];
-            s->is_pending[i] &= ~first_bit;
             break;
         }
     }
@@ -110,7 +108,6 @@ static void vim_update_vectors(VimState *s)
         s->first_irq_isr = s->vimram->isrFunc[0];
     }
 
-    //fprintf(stderr, "channel: %d; isr: %x\n", s->first_irq_index, s->first_irq_isr);
     vim_update(s);
 
 }
@@ -137,6 +134,8 @@ static void vim_set_irq(void *opaque, int irq, int level)
                 int bit = (channel % 32);
                 if (level != 0){ 
                     s->is_pending[index] |= 1u << bit;
+                } else {
+                    s->is_pending[index] &= ~(1u << bit);
                 }
             }
         }
