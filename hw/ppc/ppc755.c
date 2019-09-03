@@ -77,13 +77,19 @@ static void ppc_755board_init(MachineState *machine)
     for (i = 0; i < smp_cpus; i++) {
         cpu = cpu_ppc_init(machine->cpu_model);
         if (cpu == NULL) {
-            fprintf(stderr, "Unable to find PowerPC CPU definition\n");
+            error_report("Unable to find PowerPC CPU definition\n");
             exit(1);
         }
         env = &cpu->env;
         qemu_register_reset(ppc_755_reset, cpu);
     }
-
+    if (env->flags & POWERPC_FLAG_RTC_CLK) {
+            /* POWER / PowerPC 601 RTC clock frequency is 7.8125 MHz */
+        cpu_ppc_tb_init(env, 7812500UL);
+    } else {
+            /* Set time-base frequency to 100 Mhz */
+        cpu_ppc_tb_init(env, 100UL * 1000UL * 1000UL);
+    }
     /* allocate RAM */
     hwaddr offset = 0;
     uint64_t temp=0;
