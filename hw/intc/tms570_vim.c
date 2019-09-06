@@ -9,7 +9,6 @@
 #include "qemu/osdep.h"
 #include "hw/sysbus.h"
 #include "qemu/log.h"
-#include <math.h>
 
 #define TYPE_VIM "tms570-vim"
 #define TYPE_VIM_RAM "tms570-vimram"
@@ -78,8 +77,13 @@ static void vim_update_vectors(VimState *s)
         /* interrupt channel enable and pending */
         fiq[i] = s->is_pending[i] & s->is_enabled[i] & s->fiq_or_irq[i];
         if (fiq[i]) {
-            uint32_t first_bit = fiq[i] & (~(fiq[i]-1));
-            uint8_t channel = (32 * i) + log(first_bit)/log(2);
+            uint8_t channel = 0;
+            for (size_t j = 0; j < 32; j++)
+            {
+                if((irq[i] >> j) & 0x1){
+                    channel = (32 * i) + j;
+                }
+            }
             uint8_t index = channel + 1;
             s->first_fiq_index = index;
             s->first_fiq_isr = s->vimram->isrFunc[index];
@@ -95,8 +99,13 @@ static void vim_update_vectors(VimState *s)
     {
         irq[i] = s->is_pending[i] & s->is_enabled[i] & ~s->fiq_or_irq[i];
         if (irq[i]) {
-            uint32_t first_bit = irq[i] & (~(irq[i]-1));
-            uint8_t channel = (32 * i) + log(first_bit)/log(2);
+            uint8_t channel = 0;
+            for (size_t j = 0; j < 32; j++)
+            {
+                if((irq[i] >> j) & 0x1){
+                    channel = (32 * i) + j;
+                }
+            }
             uint8_t index = channel + 1;
             s->first_irq_index = index;
             s->first_irq_isr = s->vimram->isrFunc[index];
