@@ -82,6 +82,7 @@ static void vim_update_vectors(VimState *s)
             {
                 if((irq[i] >> j) & 0x1){
                     channel = (32 * i) + j;
+                    break;
                 }
             }
             uint8_t index = channel + 1;
@@ -104,6 +105,7 @@ static void vim_update_vectors(VimState *s)
             {
                 if((irq[i] >> j) & 0x1){
                     channel = (32 * i) + j;
+                    break;
                 }
             }
             uint8_t index = channel + 1;
