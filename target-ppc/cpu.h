@@ -1530,9 +1530,7 @@ static inline int cpu_mmu_index (CPUPPCState *env, bool ifetch)
 #define SPR_MPC_IC_DAT        (0x232)
 #define SPR_Exxx_DBCNT        (0x232)
 #define SPR_IBAT5L            (0x233)
-#define SPR_Exxx_DBCR4        (0x233)
 #define SPR_IBAT6U            (0x234)
-#define SPR_Exxx_DBCR5        (0x234)
 #define SPR_IBAT6L            (0x235)
 #define SPR_IBAT7U            (0x236)
 #define SPR_IBAT7L            (0x237)
@@ -1555,7 +1553,6 @@ static inline int cpu_mmu_index (CPUPPCState *env, bool ifetch)
 #define SPR_BOOKE_DSRR0       (0x23E)
 #define SPR_DBAT7L            (0x23F)
 #define SPR_BOOKE_DSRR1       (0x23F)
-#define SPR_Exxx_DBCR6        (0x25B)
 #define SPR_BOOKE_SPRG8       (0x25C)
 #define SPR_BOOKE_SPRG9       (0x25D)
 #define SPR_BOOKE_MAS0        (0x270)
@@ -2171,16 +2168,6 @@ enum {
 };
 
 enum {
-    /* PowerPC E200 input pins */
-    PPCE200_INPUT_RESET_SYS = 0,
-    PPCE200_INPUT_INT        = 1,
-    PPCE200_INPUT_CINT       = 2,
-    PPCE200_INPUT_MCK        = 3,
-    PPCE200_INPUT_DEBUG      = 4, 
-    PPCE200_INPUT_NB,
-};
-
-enum {
     /* PowerPC 40x input pins */
     PPC40x_INPUT_RESET_CORE = 0,
     PPC40x_INPUT_RESET_CHIP = 1,
@@ -2403,13 +2390,6 @@ static inline uint32_t booke206_tlbnps(CPUPPCState *env, const int tlbn)
         int i;
         for (i = min; i <= max; i++) {
             ret |= (1 << (i << 1));
-        }
-        if (env->spr[SPR_PVR] == 0x81630000)
-        {
-            for (i = min; i <= max; i++) {
-                ret |= (1 << ((i << 1) + 1));
-            }
-            ret &= ~(1 << 23);
         }
     }
 
