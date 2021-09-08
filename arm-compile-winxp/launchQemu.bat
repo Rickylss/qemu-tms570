@@ -1,0 +1,3 @@
+C:\home\software\cygwin252\home\foobar\qemu\arm-compile-winxp\1\arm-softmmu\qemu-system-arm.exe -no-reboot -M tms570-ls3137 -serial telnet:localhost:9000,server -serial -apptestaddr  C:\home\software\cygwin252\home\foobar\misc\ppc755\mytest\bios.bin,0xfff00000  -apptestaddr C:\home\software\cygwin252\home\foobar\misc\ppc755\Qemu755Test\os.bin,0x1000000  -s -S
+#C:\home\software\cygwin252\home\foobar\qemu\arm-compile-winxp\1\arm-softmmu\qemu-system-arm.exe -no-reboot -M tms570-ls3137 -serial telnet:localhost:9000,server -serial -kernel  C:\home\software\cygwin252\home\foobar\misc\ppc755\mytest\bios.bin -s -S
+pause>nul

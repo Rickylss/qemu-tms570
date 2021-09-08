@@ -22,6 +22,17 @@
 #include "qemu/config-file.h"
 #include "exec/address-spaces.h"
 
+#define APPNAMELENGTH   100
+#define APPMAXCOUNT    30
+typedef struct {
+    char appname[APPNAMELENGTH];
+    uint32_t appaddr;
+}APPinfo;
+
+extern APPinfo app[APPMAXCOUNT];
+extern int appcount;
+extern uint32_t apptestaddr;
+
 /* Kernel boot protocol is specified in the kernel docs
  * Documentation/arm/Booting and Documentation/arm64/booting.txt
  * They have different preferred image load offsets from system RAM base.
@@ -629,6 +640,33 @@ static void do_cpu_reset(void *opaque)
                 info->secondary_cpu_reset_hook(cpu, info);
             }
         }
+    } else {
+       /* No kernel image or firmware has been supplied.  Reset to the
+        * default endianness for the current board (e.g. so that code loaded
+        * via the gdb stub interface does the right thing).
+        */
+       if (arm_feature(env, ARM_FEATURE_V7)) {
+           int i;
+           if (cpu->reset_sctlr & SCTLR_EE) {
+               env->cp15.sctlr_el[1] |= SCTLR_E0E;
+               for (i = 1; i < 4; ++i) {
+                   env->cp15.sctlr_el[i] |= SCTLR_EE;
+               }
+               env->uncached_cpsr |= CPSR_E;
+           } else {
+                env->cp15.sctlr_el[1] &= ~SCTLR_E0E;
+                for (i = 1; i < 4; ++i) {
+                    env->cp15.sctlr_el[i] &= ~SCTLR_EE;
+                }
+                env->uncached_cpsr &= ~CPSR_E;
+           }
+       } else {
+           if (cpu->reset_sctlr & SCTLR_B) {
+               env->cp15.sctlr_el[1] |= SCTLR_B;
+           } else {
+               env->cp15.sctlr_el[1] &= ~SCTLR_B;
+           }
+       }
     }
 }
 
@@ -734,6 +772,10 @@ static uint64_t arm_load_elf(struct arm_boot_info *info, uint64_t *pentry,
                  * tell the ELF loader to byte reverse the data for us.
                  */
                 data_swab = 2;
+                if (info->board_id == 0x3137) {
+                    info->endianness = ARM_ENDIANNESS_BE8;
+                    data_swab = 2;
+                }
             }
         } else {
             info->endianness = ARM_ENDIANNESS_LE;
@@ -1001,6 +1043,32 @@ void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info)
     info->load_kernel_notifier.notifier.notify = arm_load_kernel_notify;
     qemu_add_machine_init_done_notifier(&info->load_kernel_notifier.notifier);
 
+    /* CPU objects (unlike devices) are not automatically reset on system
+     * reset, so we must always register a handler to do so. If we're
+     * actually loading a kernel, the handler is also responsible for
+     * arranging that we start it correctly.
+     */
+    for (cs = CPU(cpu); cs; cs = CPU_NEXT(cs)) {
+        qemu_register_reset(do_cpu_reset, ARM_CPU(cs));
+    }
+}
+
+void arm_load_app(ARMCPU *cpu, struct arm_boot_info *info)
+{
+    CPUState *cs;
+
+    info->load_kernel_notifier.cpu = cpu;
+    info->load_kernel_notifier.notifier.notify = arm_load_kernel_notify;
+    qemu_add_machine_init_done_notifier(&info->load_kernel_notifier.notifier);
+
+    int appindex=0;
+    int appsize=-1;
+    for(; appindex < appcount; appindex++){
+        appsize = load_image_targphys(app[appindex].appname,app[appindex].appaddr,info->ram_size-app[appindex].appaddr);
+        if(appsize < 0){
+            hw_error("qemu:could not load app:%s\n",app[appindex].appname);
+        }
+    }
     /* CPU objects (unlike devices) are not automatically reset on system
      * reset, so we must always register a handler to do so. If we're
      * actually loading a kernel, the handler is also responsible for

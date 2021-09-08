@@ -32,6 +32,7 @@
 #include "sysemu/sysemu.h"
 #include "sysemu/kvm.h"
 #include "kvm_arm.h"
+#include "exec/cpu-common.h"
 
 static void arm_cpu_set_pc(CPUState *cs, vaddr value)
 {
@@ -407,6 +408,21 @@ print_insn_thumb1(bfd_vma pc, disassemble_info *info)
   return print_insn_arm(pc | 1, info);
 }
 
+static int arm_read_memory_func(bfd_vma memaddr, bfd_byte *b,
+                                int length, struct disassemble_info *info)
+{
+    assert(info->read_memory_inner_func);
+    assert((info->flags & INSN_ARM_BE32) == 0 || length == 2 || length == 4);
+
+    if ((info->flags & INSN_ARM_BE32) != 0 && length == 2) {
+        assert(info->endian == BFD_ENDIAN_LITTLE);
+        return info->read_memory_inner_func(memaddr ^ 2, (bfd_byte *)b, 2,
+                                            info);
+    } else {
+        return info->read_memory_inner_func(memaddr, b, length, info);
+    }
+}
+
 static void arm_disas_set_info(CPUState *cpu, disassemble_info *info)
 {
     ARMCPU *ac = ARM_CPU(cpu);
@@ -425,12 +441,20 @@ static void arm_disas_set_info(CPUState *cpu, disassemble_info *info)
     } else {
         info->print_insn = print_insn_arm;
     }
-    if (bswap_code(arm_sctlr_b(env))) {
+    if (bswap_code(arm_sctlr_b(env) || arm_tms570(env))) {
 #ifdef TARGET_WORDS_BIGENDIAN
         info->endian = BFD_ENDIAN_LITTLE;
 #else
         info->endian = BFD_ENDIAN_BIG;
 #endif
+    }
+    if (info->read_memory_inner_func == NULL) {
+        info->read_memory_inner_func = info->read_memory_func;
+        info->read_memory_func = arm_read_memory_func;
+    }
+    info->flags &= ~INSN_ARM_BE32;
+    if (arm_sctlr_b(env) || arm_tms570(env)) {
+        info->flags |= INSN_ARM_BE32;
     }
 }
 
@@ -509,6 +533,9 @@ static Property arm_cpu_rvbar_property =
 static Property arm_cpu_has_el3_property =
             DEFINE_PROP_BOOL("has_el3", ARMCPU, has_el3, true);
 
+static Property arm_cpu_cfgend_property =
+            DEFINE_PROP_BOOL("cfgend", ARMCPU, cfgend, false);
+
 static Property arm_cpu_has_mpu_property =
             DEFINE_PROP_BOOL("has-mpu", ARMCPU, has_mpu, true);
 
@@ -562,6 +589,8 @@ static void arm_cpu_post_init(Object *obj)
         }
     }
 
+    qdev_property_add_static(DEVICE(obj), &arm_cpu_cfgend_property,
+                             &error_abort);
 }
 
 static void arm_cpu_finalizefn(Object *obj)
@@ -703,6 +732,14 @@ static void arm_cpu_realizefn(DeviceState *dev, Error **errp)
                            address_space_init_shareable(cs->memory,
                                                         "cpu-memory"),
                            ARMASIdx_NS);
+
+    if (cpu->cfgend) {
+        if (arm_feature(&cpu->env, ARM_FEATURE_V7)) {
+            cpu->reset_sctlr |= SCTLR_EE;
+        } else {
+            cpu->reset_sctlr |= SCTLR_B;
+        }
+    }
 #endif
 
     qemu_init_vcpu(cs);
@@ -950,6 +987,105 @@ static void arm_v7m_class_init(ObjectClass *oc, void *data)
 #endif
 
     cc->cpu_exec_interrupt = arm_v7m_cpu_exec_interrupt;
+}
+
+static const ARMCPRegInfo cortexr4_cp_reginfo[] = {
+    /* Dummy the TCM region regs for the moment */
+    { .name = "ATCM", .cp = 15, .opc1 = 0, .crn = 9, .crm = 1, .opc2 = 0,
+      .access = PL1_RW, .type = ARM_CP_CONST },
+    { .name = "BTCM", .cp = 15, .opc1 = 0, .crn = 9, .crm = 1, .opc2 = 1,
+      .access = PL1_RW, .type = ARM_CP_CONST },
+    /* Secondary Auxiliary Control Register */
+    { .name = "AuxCTL", .cp = 15, .opc1 = 0, .crn = 15, .crm = 0, .opc2 = 0,
+      .access = PL0_RW, .type = ARM_CP_CONST, .resetvalue = 0 },
+    REGINFO_SENTINEL
+};
+
+static void cortex_r4_initfn(Object *obj){
+    ARMCPU *cpu = ARM_CPU(obj);
+
+    set_feature(&cpu->env, ARM_FEATURE_V7);
+    set_feature(&cpu->env, ARM_FEATURE_THUMB_DIV);
+    set_feature(&cpu->env, ARM_FEATURE_MPU);
+    cpu->midr = 0x411fc144; /* r1p4*/
+    cpu->id_pfr0 = 0x0131;
+    cpu->id_pfr1 = 0x001;
+    cpu->id_dfr0 = 0x010400;
+    cpu->id_afr0 = 0x0;
+    cpu->id_mmfr0 = 0x0210030;
+    cpu->id_mmfr1 = 0x00000000;
+    cpu->id_mmfr2 = 0x01200000;
+    cpu->id_mmfr3 = 0x0211;
+    cpu->id_isar0 = 0x01101111;
+    cpu->id_isar1 = 0x13112111;
+    cpu->id_isar2 = 0x21232131;
+    cpu->id_isar3 = 0x01112131;
+    cpu->id_isar4 = 0x00010142;
+    cpu->id_isar5 = 0x0;    
+    define_arm_cp_regs(cpu, cortexr4_cp_reginfo);
+}
+
+/* Floating-Point System ID Register[3:0] */
+static const struct {
+    uint8_t r;
+    uint8_t p;
+    uint8_t value;
+} cortexr4_fpsid_revs[] = {
+    { 1, 0, 0x3 },
+    { 1, 1, 0x4 },
+    { 1, 2, 0x6 },
+    { 1, 3, 0x7 },
+    { 1, 4, 0x8 },
+    {}
+};
+
+/* Cortex-R4F = Cortex-R4 + FPU */
+static void cortex_r4f_initfn(Object *obj)
+{
+    ARMCPU *cpu = ARM_CPU(obj);
+
+    set_feature(&cpu->env, ARM_FEATURE_V7);
+    set_feature(&cpu->env, ARM_FEATURE_THUMB_DIV);
+    set_feature(&cpu->env, ARM_FEATURE_MPU);
+    set_feature(&cpu->env, ARM_FEATURE_VFP3);
+    cpu->midr = 0x411fc144; /* r1p4*/
+    cpu->id_pfr0 = 0x0131;
+    cpu->id_pfr1 = 0x001;
+    cpu->id_dfr0 = 0x010400;
+    cpu->id_afr0 = 0x0;
+    cpu->id_mmfr0 = 0x0210030;
+    cpu->id_mmfr1 = 0x00000000;
+    cpu->id_mmfr2 = 0x01200000;
+    cpu->id_mmfr3 = 0x0211;
+    cpu->id_isar0 = 0x01101111;
+    cpu->id_isar1 = 0x13112111;
+    cpu->id_isar2 = 0x21232131;
+    cpu->id_isar3 = 0x01112131;
+    cpu->id_isar4 = 0x00010142;
+    cpu->id_isar5 = 0x0;
+
+    { /* set fpu fpsid for cortexr4f */
+        uint8_t r = ( cpu->midr >> 20 ) & 0xf;
+        uint8_t p = cpu->midr & 0xf;
+        uint8_t rev = 0;
+
+        for (int i = 0; cortexr4_fpsid_revs[i].r != 0; i++) {
+            if (cortexr4_fpsid_revs[i].r == r &&
+                cortexr4_fpsid_revs[i].p == p) {
+                    rev = cortexr4_fpsid_revs[i].value;
+                    break;
+                }
+        }
+
+        if (rev == 0) {
+            cpu_abort(&cpu->parent_obj, 
+                      "Cortex-R4F r%" PRIu8 "p%" PRIu8 " unsupported", 
+                      r, p);
+        }
+        
+        cpu->reset_fpsid = 0x41023140 | (rev & 0xf);
+    }
+    define_arm_cp_regs(cpu, cortexr4_cp_reginfo);
 }
 
 static const ARMCPRegInfo cortexr5_cp_reginfo[] = {
@@ -1384,6 +1520,8 @@ static const ARMCPUInfo arm_cpus[] = {
                              .class_init = arm_v7m_class_init },
     { .name = "cortex-m4",   .initfn = cortex_m4_initfn,
                              .class_init = arm_v7m_class_init },
+    { .name = "cortex-r4",  .initfn = cortex_r4_initfn},
+    { .name = "cortex-r4f",  .initfn = cortex_r4f_initfn},
     { .name = "cortex-r5",   .initfn = cortex_r5_initfn },
     { .name = "cortex-a8",   .initfn = cortex_a8_initfn },
     { .name = "cortex-a9",   .initfn = cortex_a9_initfn },
@@ -1447,6 +1585,27 @@ static gchar *arm_gdb_arch_name(CPUState *cs)
     return g_strdup("arm");
 }
 
+#ifndef CONFIG_USER_ONLY
+static int arm_cpu_memory_rw_debug(CPUState *cpu, vaddr address,
+                                   uint8_t *buf, int len, bool is_write)
+{
+    target_ulong addr = address;
+    ARMCPU *armcpu = ARM_CPU(cpu);
+    CPUARMState *env = &armcpu->env;
+
+    if (arm_sctlr_b(env) || arm_tms570(env)) {
+        target_ulong i;
+        for (i = 0; i < len; i++) {
+            cpu_memory_rw_debug(cpu, (addr + i) ^ 3, &buf[i], 1, is_write);
+        }
+    } else {
+        cpu_memory_rw_debug(cpu, addr, buf, len, is_write);
+    }
+
+    return 0;
+}
+#endif
+
 static void arm_cpu_class_init(ObjectClass *oc, void *data)
 {
     ARMCPUClass *acc = ARM_CPU_CLASS(oc);
@@ -1464,6 +1623,9 @@ static void arm_cpu_class_init(ObjectClass *oc, void *data)
     cc->has_work = arm_cpu_has_work;
     cc->cpu_exec_interrupt = arm_cpu_exec_interrupt;
     cc->dump_state = arm_cpu_dump_state;
+#if !defined(CONFIG_USER_ONLY)
+    cc->memory_rw_debug = arm_cpu_memory_rw_debug;
+#endif
     cc->set_pc = arm_cpu_set_pc;
     cc->gdb_read_register = arm_cpu_gdb_read_register;
     cc->gdb_write_register = arm_cpu_gdb_write_register;
@@ -1485,6 +1647,9 @@ static void arm_cpu_class_init(ObjectClass *oc, void *data)
     cc->gdb_stop_before_watchpoint = true;
     cc->debug_excp_handler = arm_debug_excp_handler;
     cc->debug_check_watchpoint = arm_debug_check_watchpoint;
+#if !defined(CONFIG_USER_ONLY)
+    cc->adjust_watchpoint_address = arm_adjust_watchpoint_address;
+#endif
 
     cc->disas_set_info = arm_disas_set_info;
 

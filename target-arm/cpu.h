@@ -21,6 +21,7 @@
 #define ARM_CPU_H
 
 #include "kvm-consts.h"
+#include "hw/arm/arm.h"
 
 #if defined(TARGET_AARCH64)
   /* AArch64 definitions */
@@ -661,6 +662,13 @@ struct ARMCPU {
     /* DCZ blocksize, in log_2(words), ie low 4 bits of DCZID_EL0 */
     uint32_t dcz_blocksize;
     uint64_t rvbar;
+
+    /* Whether the cfgend input is high (i.e. this CPU should reset into
+     * big-endian mode).  This setting isn't used directly: instead it modifies
+     * the reset_sctlr value to have SCTLR_B or SCTLR_EE set, depending on the
+     * architecture version.
+     */
+    bool cfgend;
 
     ARMELChangeHook *el_change_hook;
     void *el_change_hook_opaque;
@@ -2098,6 +2106,12 @@ static inline bool arm_singlestep_active(CPUARMState *env)
         && arm_generate_debug_exceptions(env);
 }
 
+static inline bool arm_tms570(CPUARMState *env)
+{
+    const struct arm_boot_info *info = env->boot_info;
+    return info->board_id == 0x3137;
+}
+
 static inline bool arm_sctlr_b(CPUARMState *env)
 {
     return
@@ -2111,6 +2125,12 @@ static inline bool arm_sctlr_b(CPUARMState *env)
         (env->cp15.sctlr_el[1] & SCTLR_B) != 0;
 }
 
+static inline bool arm_cpsr_e(CPUARMState *env)
+{
+    return arm_feature(env, ARM_FEATURE_V7) &&
+           (env->uncached_cpsr & CPSR_E) != 0;
+}
+
 /* Return true if the processor is in big-endian mode. */
 static inline bool arm_cpu_data_is_big_endian(CPUARMState *env)
 {
@@ -2118,6 +2138,10 @@ static inline bool arm_cpu_data_is_big_endian(CPUARMState *env)
 
     /* In 32bit endianness is determined by looking at CPSR's E bit */
     if (!is_a64(env)) {
+        if (arm_tms570(env)) {
+            return 0;
+        }
+        
         return
 #ifdef CONFIG_USER_ONLY
             /* In system mode, BE32 is modelled in line with the
@@ -2331,6 +2355,7 @@ static inline void cpu_get_tb_cpu_state(CPUARMState *env, target_ulong *pc,
             | (env->vfp.vec_len << ARM_TBFLAG_VECLEN_SHIFT)
             | (env->vfp.vec_stride << ARM_TBFLAG_VECSTRIDE_SHIFT)
             | (env->condexec_bits << ARM_TBFLAG_CONDEXEC_SHIFT)
+            | (arm_tms570(env) << ARM_TBFLAG_SCTLR_B_SHIFT)
             | (arm_sctlr_b(env) << ARM_TBFLAG_SCTLR_B_SHIFT);
         if (!(access_secure_reg(env))) {
             *flags |= ARM_TBFLAG_NS_MASK;

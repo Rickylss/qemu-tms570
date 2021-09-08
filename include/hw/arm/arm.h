@@ -130,6 +130,7 @@ struct arm_boot_info {
  * machine init done notifiers are called in registration reverse order.
  */
 void arm_load_kernel(ARMCPU *cpu, struct arm_boot_info *info);
+void arm_load_app(ARMCPU *cpu, struct arm_boot_info *info);
 
 /* Write a secure board setup routine with a dummy handler for SMCs */
 void arm_write_secure_board_setup_dummy_smc(ARMCPU *cpu,

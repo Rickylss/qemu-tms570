@@ -314,4 +314,26 @@ int cpu_memory_rw_debug(CPUState *cpu, target_ulong addr,
 
 int cpu_exec(CPUState *cpu);
 
+/**
+  * target_memory_rw_debug:
+  * @cpu: The CPU to use.
+  * @addr: The target address to read or write.
+  * @buf: Host buffer to read or write from or into.
+  * @len: Length of data.
+  * @is_write: True for write, false for read.
+  *
+  * A wrapper for cpu_memory_rw_debug that can be overridden with a
+  * CPUClass-specific version if required.
+  */
+static inline int target_memory_rw_debug(CPUState *cpu, target_ulong addr,
+                                         uint8_t *buf, int len, bool is_write)
+{
+    CPUClass *cc = CPU_GET_CLASS(cpu);
+
+    if (cc->memory_rw_debug) {
+        return cc->memory_rw_debug(cpu, addr, buf, len, is_write);
+    }
+    return cpu_memory_rw_debug(cpu, addr, buf, len, is_write);
+}
+
 #endif /* CPU_ALL_H */
